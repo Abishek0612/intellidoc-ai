@@ -1,4 +1,19 @@
-# Logs
+# --- Environment Variables ---
+.env
+.env.*
+!.env.example
+
+# --- Dependencies ---
+node_modules
+
+# --- Build Output ---
+dist
+dist-ssr
+
+# --- Netlify ---
+.netlify
+
+# --- Logs ---
 logs
 *.log
 npm-debug.log*
@@ -7,15 +22,13 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# --- Local Development ---
 *.local
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
 .idea
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 .DS_Store
 *.suo
 *.ntvs*

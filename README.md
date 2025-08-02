@@ -1,12 +1,36 @@
-# React + Vite
+# intellidoc-ai
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Advanced AI-powered productivity suite with document editing, research assistance, and translation services.
 
-Currently, two official plugins are available:
+## ✨ Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Smart Document Editor** - Rich text editing with AI assistance
+- **AI Research Assistant** - Intelligent research with real-time suggestions
+- **Multi-Language Translation** - Instant translation with language detection
+- **Multi-API Key Support** - Automatic fallback for uninterrupted service
+- **Real-time Collaboration** - Share and collaborate on documents
+- **Export Options** - PDF, Word, HTML export capabilities
 
-## Expanding the ESLint configuration
+## 🛠️ Tech Stack
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- React 18 + Vite
+- TipTap Editor
+- Tailwind CSS
+- Google Gemini AI
+- React Toastify
+
+## 🚀 Quick Start
+
+```bash
+# Clone repository
+git clone https://github.com/yourusername/vettam-studio.git
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+
+# Start development server
+npm run dev
+```
