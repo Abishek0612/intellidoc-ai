@@ -2,7 +2,7 @@ import { toast } from "react-toastify";
 
 class SimpleApiKeyManager {
   constructor() {
-    const apiKeyString = import.meta.env.GEMINI_API_KEY || "";
+    const apiKeyString = import.meta.env.VITE_GEMINI_API_KEY || "";
     this.apiKeys = apiKeyString
       .split("||")
       .map((key) => key.trim())
