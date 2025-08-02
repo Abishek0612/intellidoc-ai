@@ -1,0 +1,122 @@
+.ProseMirror {
+  outline: none;
+  padding: 0;
+  font-family: "Times New Roman", serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #374151;
+  min-height: 500px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.ProseMirror [style] {
+  all: revert;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #9ca3af;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.ProseMirror .is-editor-empty::before {
+  color: #9ca3af;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.ProseMirror p {
+  margin: 0 0 16px 0;
+}
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3 {
+  font-weight: bold;
+  margin: 24px 0 16px 0;
+}
+
+.ProseMirror ol,
+.ProseMirror ul {
+  margin: 16px 0;
+  padding-left: 24px;
+}
+
+.ProseMirror li {
+  margin: 4px 0;
+}
+
+.ProseMirror strong {
+  font-weight: 600;
+}
+.ProseMirror em {
+  font-style: italic;
+}
+.ProseMirror u {
+  text-decoration: underline;
+}
+.ProseMirror s {
+  text-decoration: line-through;
+}
+.ProseMirror code {
+  background: #f3f4f6;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: "Monaco", "Consolas", monospace;
+}
+
+.ProseMirror blockquote {
+  border-left: 4px solid #e5e7eb;
+  margin: 16px 0;
+  padding-left: 16px;
+  font-style: italic;
+  color: #6b7280;
+}
+
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 16px 0;
+  overflow: hidden;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid #e5e7eb;
+  box-sizing: border-box;
+  min-width: 1em;
+  padding: 8px;
+  position: relative;
+  vertical-align: top;
+}
+
+.ProseMirror table th {
+  background-color: #f9fafb;
+  font-weight: bold;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  margin: 16px 0;
+}
+
+.ProseMirror a {
+  color: #3b82f6;
+  text-decoration: underline;
+}
+
+.page-container {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  background: white;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+}

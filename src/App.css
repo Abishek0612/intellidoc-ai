@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Avenir Next", system-ui, -apple-system, sans-serif;
+  background-color: #f9fafb;
+}
+
+#root {
+  height: 100vh;
+  overflow: hidden;
+}
