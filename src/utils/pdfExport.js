@@ -1,77 +1,184 @@
-import html2pdf from "html2pdf.js";
-import { saveAs } from "file-saver";
+import { toast } from "react-toastify";
 
-export const exportToPDF = async (content, title = "document") => {
-  const element = document.createElement("div");
-  element.innerHTML = content;
-  element.style.padding = "40px";
-  element.style.fontFamily = "Arial, sans-serif";
-  element.style.lineHeight = "1.6";
-  element.style.color = "#333";
+const sanitizeContentForPDF = (htmlContent, title) => {
+  const tempDiv = document.createElement("div");
+  tempDiv.innerHTML = htmlContent;
 
-  const options = {
-    margin: [20, 20, 20, 20],
-    filename: `${title}.pdf`,
-    image: { type: "jpeg", quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-  };
+  const allElements = tempDiv.querySelectorAll("*");
+  allElements.forEach((element) => {
+    element.removeAttribute("class");
 
+    const style = element.getAttribute("style");
+    if (style) {
+      const cleanStyle = style
+        .replace(/oklch\([^)]+\)/g, "#333")
+        .replace(/hsl\([^)]+\)/g, "#333")
+        .replace(/var\([^)]+\)/g, "#333");
+      element.setAttribute("style", cleanStyle);
+    }
+  });
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>${title}</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          font-size: 14px;
+          line-height: 1.6;
+          color: #333;
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        h1, h2, h3, h4, h5, h6 {
+          font-weight: bold;
+          margin: 20px 0 10px 0;
+        }
+        h1 { font-size: 24px; }
+        h2 { font-size: 20px; }
+        h3 { font-size: 18px; }
+        p { margin: 10px 0; }
+        ul, ol { margin: 10px 0; padding-left: 30px; }
+        li { margin: 5px 0; }
+        strong { font-weight: bold; }
+        em { font-style: italic; }
+        u { text-decoration: underline; }
+        blockquote {
+          border-left: 4px solid #ccc;
+          margin: 15px 0;
+          padding-left: 15px;
+          font-style: italic;
+        }
+        table {
+          border-collapse: collapse;
+          width: 100%;
+          margin: 15px 0;
+        }
+        table td, table th {
+          border: 1px solid #ccc;
+          padding: 8px;
+          text-align: left;
+        }
+        table th {
+          background-color: #f5f5f5;
+          font-weight: bold;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>${title}</h1>
+      ${tempDiv.innerHTML}
+    </body>
+    </html>
+  `;
+};
+
+export const exportToPDF = async (content, title = "Document") => {
   try {
-    await html2pdf().set(options).from(element).save();
-    return true;
+    console.log("Starting PDF export...");
+
+    const html2pdf = (await import("html2pdf.js")).default;
+
+    const cleanHTML = sanitizeContentForPDF(content, title);
+    const filename = `${title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.pdf`;
+
+    const opt = {
+      margin: 0.5,
+      filename: filename,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
+    };
+
+    console.log("Generating PDF...");
+    await html2pdf().set(opt).from(cleanHTML).save();
+    console.log("PDF export completed");
   } catch (error) {
-    console.error("Error exporting PDF:", error);
-    return false;
+    console.error("PDF export error:", error);
+    throw new Error(`PDF export failed: ${error.message}`);
   }
 };
 
-export const exportToWord = (content, title = "document") => {
-  const htmlContent = `
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <title>${title}</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; }
-          h1, h2, h3 { color: #333; }
-          p { margin-bottom: 1em; }
-          ul, ol { margin: 1em 0; padding-left: 2em; }
-          blockquote { border-left: 4px solid #ccc; margin: 1em 0; padding-left: 1em; }
-        </style>
-      </head>
-      <body>${content}</body>
-    </html>
-  `;
+export const exportToWord = (content, title = "Document") => {
+  try {
+    console.log("Starting Word export...");
 
-  const blob = new Blob([htmlContent], {
-    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  });
+    const cleanHTML = sanitizeContentForPDF(content, title);
+    const filename = `${title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.doc`;
 
-  saveAs(blob, `${title}.doc`);
+    const blob = new Blob([cleanHTML], {
+      type: "application/msword;charset=utf-8",
+    });
+
+    downloadBlob(blob, filename);
+    console.log("Word export completed");
+  } catch (error) {
+    console.error("Word export error:", error);
+    throw new Error(`Word export failed: ${error.message}`);
+  }
 };
 
-export const exportToHTML = (content, title = "document") => {
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <title>${title}</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 40px; }
-          h1, h2, h3 { color: #333; }
-          p { margin-bottom: 1em; }
-          ul, ol { margin: 1em 0; padding-left: 2em; }
-          blockquote { border-left: 4px solid #ccc; margin: 1em 0; padding-left: 1em; background: #f9f9f9; }
-          code { background: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
-          pre { background: #f4f4f4; padding: 1em; border-radius: 5px; overflow-x: auto; }
-        </style>
-      </head>
-      <body>${content}</body>
-    </html>
-  `;
+export const exportToHTML = (content, title = "Document") => {
+  try {
+    console.log("Starting HTML export...");
 
-  const blob = new Blob([htmlContent], { type: "text/html" });
-  saveAs(blob, `${title}.html`);
+    const cleanHTML = sanitizeContentForPDF(content, title);
+    const filename = `${title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.html`;
+
+    const blob = new Blob([cleanHTML], {
+      type: "text/html;charset=utf-8",
+    });
+
+    downloadBlob(blob, filename);
+    console.log("HTML export completed");
+  } catch (error) {
+    console.error("HTML export error:", error);
+    throw new Error(`HTML export failed: ${error.message}`);
+  }
+};
+
+export const exportAsText = (content, title = "Document") => {
+  try {
+    console.log("Starting text export...");
+
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = content;
+    const textContent = tempDiv.textContent || tempDiv.innerText || "";
+
+    const fullText = `${title}\n${"=".repeat(title.length)}\n\n${textContent}`;
+    const filename = `${title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.txt`;
+
+    const blob = new Blob([fullText], {
+      type: "text/plain;charset=utf-8",
+    });
+
+    downloadBlob(blob, filename);
+    console.log("Text export completed");
+  } catch (error) {
+    console.error("Text export error:", error);
+    throw new Error(`Text export failed: ${error.message}`);
+  }
+};
+
+const downloadBlob = (blob, filename) => {
+  try {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.style.display = "none";
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  } catch (error) {
+    console.error("Download failed:", error);
+    throw new Error("Failed to download file");
+  }
 };
