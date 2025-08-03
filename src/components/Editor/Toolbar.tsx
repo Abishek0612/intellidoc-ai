@@ -46,9 +46,9 @@ const Toolbar: React.FC<ToolbarProps> = ({
   const [showMoreTools, setShowMoreTools] = useState(false);
   const [currentFontSize, setCurrentFontSize] = useState("16px");
   const [currentFontFamily, setCurrentFontFamily] = useState("Arial");
+  const [isExporting, setIsExporting] = useState(false);
 
   const isProcessingRef = useRef(false);
-  const dropdownCloseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   if (!editor) {
     return null;
@@ -158,58 +158,150 @@ const Toolbar: React.FC<ToolbarProps> = ({
     [editor, fontFamilies]
   );
 
-  const sanitizeHtmlForPDF = useCallback((htmlContent: string): string => {
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = htmlContent;
-
-    const allElements = tempDiv.querySelectorAll("*");
-
-    allElements.forEach((element) => {
-      element.removeAttribute("style");
-      element.removeAttribute("class");
-
-      const attributes = Array.from(element.attributes);
-      attributes.forEach((attr) => {
-        if (
-          attr.name.startsWith("data-") ||
-          attr.name.startsWith("contenteditable") ||
-          attr.name === "spellcheck" ||
-          attr.name === "role" ||
-          attr.name === "aria-" ||
-          attr.name.startsWith("aria")
-        ) {
-          element.removeAttribute(attr.name);
-        }
-      });
-
-      if (element.textContent) {
-        element.textContent = element.textContent.replace(
-          /oklch\([^)]*\)/g,
-          ""
-        );
-        element.textContent = element.textContent.replace(/rgb\([^)]*\)/g, "");
-        element.textContent = element.textContent.replace(/rgba\([^)]*\)/g, "");
-        element.textContent = element.textContent.replace(/hsl\([^)]*\)/g, "");
-        element.textContent = element.textContent.replace(/hsla\([^)]*\)/g, "");
-      }
-    });
-
-    let cleanHtml = tempDiv.innerHTML;
-
-    cleanHtml = cleanHtml.replace(/style\s*=\s*"[^"]*"/gi, "");
-    cleanHtml = cleanHtml.replace(/class\s*=\s*"[^"]*"/gi, "");
-    cleanHtml = cleanHtml.replace(/data-[^=]*\s*=\s*"[^"]*"/gi, "");
-    cleanHtml = cleanHtml.replace(/oklch\([^)]*\)/gi, "");
-    cleanHtml = cleanHtml.replace(/rgb\([^)]*\)/gi, "");
-    cleanHtml = cleanHtml.replace(/rgba\([^)]*\)/gi, "");
-    cleanHtml = cleanHtml.replace(/hsl\([^)]*\)/gi, "");
-    cleanHtml = cleanHtml.replace(/hsla\([^)]*\)/gi, "");
-
-    return cleanHtml;
+  const cleanHtmlContent = useCallback((htmlContent: string): string => {
+    return htmlContent
+      .replace(/style\s*=\s*"[^"]*"/gi, "")
+      .replace(/class\s*=\s*"[^"]*"/gi, "")
+      .replace(/data-[^=]*\s*=\s*"[^"]*"/gi, "")
+      .replace(/contenteditable\s*=\s*"[^"]*"/gi, "")
+      .replace(/spellcheck\s*=\s*"[^"]*"/gi, "")
+      .replace(/role\s*=\s*"[^"]*"/gi, "")
+      .replace(/aria-[^=]*\s*=\s*"[^"]*"/gi, "")
+      .replace(/oklch\([^)]*\)/gi, "")
+      .replace(/rgb\([^)]*\)/gi, "")
+      .replace(/rgba\([^)]*\)/gi, "")
+      .replace(/hsl\([^)]*\)/gi, "")
+      .replace(/hsla\([^)]*\)/gi, "");
   }, []);
 
+  const generatePDFInIframe = useCallback(
+    async (htmlContent: string, documentTitle: string) => {
+      return new Promise<void>((resolve, reject) => {
+        const iframe = document.createElement("iframe");
+        iframe.style.position = "absolute";
+        iframe.style.left = "-9999px";
+        iframe.style.top = "-9999px";
+        iframe.style.width = "794px";
+        iframe.style.height = "1123px";
+        iframe.style.visibility = "hidden";
+        iframe.style.opacity = "0";
+        iframe.style.pointerEvents = "none";
+
+        document.body.appendChild(iframe);
+
+        const iframeDoc =
+          iframe.contentDocument || iframe.contentWindow?.document;
+        if (!iframeDoc) {
+          document.body.removeChild(iframe);
+          reject(new Error("Could not access iframe document"));
+          return;
+        }
+
+        const cleanContent = cleanHtmlContent(htmlContent);
+        const safeTitle = documentTitle
+          .replace(/[^a-z0-9\s]/gi, "_")
+          .replace(/\s+/g, "_");
+
+        iframeDoc.open();
+        iframeDoc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>${documentTitle}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: Arial, sans-serif;
+              font-size: 14px;
+              line-height: 1.6;
+              color: #333;
+              padding: 40px;
+              background: #fff;
+              width: 794px;
+              min-height: 1123px;
+            }
+            h1 { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #333; }
+            h2 { font-size: 20px; font-weight: bold; margin: 20px 0 16px 0; color: #333; }
+            h3 { font-size: 18px; font-weight: bold; margin: 18px 0 14px 0; color: #333; }
+            h4, h5, h6 { font-weight: bold; margin: 16px 0 12px 0; color: #333; }
+            p { margin: 12px 0; }
+            ul, ol { margin: 16px 0; padding-left: 32px; }
+            li { margin: 6px 0; }
+            strong, b { font-weight: bold; }
+            em, i { font-style: italic; }
+            u { text-decoration: underline; }
+            s { text-decoration: line-through; }
+            blockquote { border-left: 4px solid #ccc; margin: 20px 0; padding: 15px; font-style: italic; background: #f9f9f9; }
+            table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+            table td, table th { border: 1px solid #ccc; padding: 12px; text-align: left; }
+            table th { background: #f5f5f5; font-weight: bold; }
+            img { max-width: 100%; height: auto; margin: 16px 0; }
+            a { color: #0066cc; text-decoration: underline; }
+          </style>
+        </head>
+        <body>
+          <h1>${documentTitle}</h1>
+          ${cleanContent}
+        </body>
+        </html>
+      `);
+        iframeDoc.close();
+
+        setTimeout(async () => {
+          try {
+            const { jsPDF } = await import("jspdf");
+            const html2canvas = (await import("html2canvas")).default;
+
+            const canvas = await html2canvas(iframeDoc.body, {
+              scale: 2,
+              useCORS: true,
+              allowTaint: false,
+              backgroundColor: "#ffffff",
+              width: 794,
+              height: 1123,
+              logging: false,
+              removeContainer: false,
+              foreignObjectRendering: false,
+            });
+
+            const imgData = canvas.toDataURL("image/jpeg", 0.95);
+            const pdf = new jsPDF("p", "mm", "a4");
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = pdfWidth;
+            const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+            let heightLeft = imgHeight;
+            let position = 0;
+
+            pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+            heightLeft -= pdfHeight;
+
+            while (heightLeft >= 0) {
+              position = heightLeft - imgHeight;
+              pdf.addPage();
+              pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+              heightLeft -= pdfHeight;
+            }
+
+            pdf.save(`${safeTitle}.pdf`);
+
+            document.body.removeChild(iframe);
+            resolve();
+          } catch (error) {
+            document.body.removeChild(iframe);
+            reject(error);
+          }
+        }, 500);
+      });
+    },
+    [cleanHtmlContent]
+  );
+
   const performPDFExport = useCallback(async () => {
-    if (!content || !title || isProcessingRef.current) {
+    if (!content || !title || isProcessingRef.current || isExporting) {
       if (!content || !title) {
         toast.error("No content available for export");
       }
@@ -217,189 +309,24 @@ const Toolbar: React.FC<ToolbarProps> = ({
     }
 
     isProcessingRef.current = true;
+    setIsExporting(true);
+    setShowExport(false);
 
     try {
-      const safeTitle = (title || "document")
-        .replace(/[^a-z0-9\s]/gi, "_")
-        .replace(/\s+/g, "_");
-      const cleanContent = sanitizeHtmlForPDF(content);
-
-      const pdfHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${title}</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body { 
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 14px;
-            line-height: 1.6; 
-            color: #333;
-            padding: 40px;
-            background: #fff;
-        }
-        h1 { 
-            color: #2c3e50;
-            font-size: 28px;
-            font-weight: bold;
-            margin-bottom: 24px;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 10px;
-        }
-        h2 { 
-            color: #34495e;
-            font-size: 24px;
-            font-weight: bold;
-            margin: 20px 0 16px 0;
-        }
-        h3 { 
-            color: #34495e;
-            font-size: 20px;
-            font-weight: bold;
-            margin: 18px 0 14px 0;
-        }
-        h4, h5, h6 { 
-            color: #34495e;
-            font-weight: bold;
-            margin: 16px 0 12px 0;
-        }
-        p { 
-            margin: 12px 0;
-            text-align: justify;
-        }
-        ul, ol { 
-            margin: 16px 0;
-            padding-left: 32px;
-        }
-        li { 
-            margin: 6px 0;
-        }
-        strong, b { 
-            font-weight: bold;
-            color: #2c3e50;
-        }
-        em, i { 
-            font-style: italic;
-        }
-        u { 
-            text-decoration: underline;
-        }
-        s, strike { 
-            text-decoration: line-through;
-        }
-        blockquote {
-            border-left: 4px solid #3498db;
-            margin: 20px 0;
-            padding: 15px 15px 15px 20px;
-            font-style: italic;
-            color: #7f8c8d;
-            background: #f8f9fa;
-        }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px 0;
-            border: 1px solid #bdc3c7;
-        }
-        table td, table th {
-            border: 1px solid #bdc3c7;
-            padding: 12px;
-            text-align: left;
-            vertical-align: top;
-        }
-        table th {
-            background: #ecf0f1;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-        table tr:nth-child(even) {
-            background: #f8f9fa;
-        }
-        img {
-            max-width: 100%;
-            height: auto;
-            margin: 16px 0;
-            display: block;
-        }
-        a {
-            color: #3498db;
-            text-decoration: underline;
-        }
-        code {
-            background: #f1f2f6;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: Consolas, Monaco, monospace;
-            font-size: 12px;
-        }
-        pre {
-            background: #f1f2f6;
-            padding: 16px;
-            border-radius: 6px;
-            overflow-x: auto;
-            margin: 16px 0;
-        }
-        .text-center { text-align: center; }
-        .text-left { text-align: left; }
-        .text-right { text-align: right; }
-    </style>
-</head>
-<body>
-    <h1>${title}</h1>
-    ${cleanContent}
-</body>
-</html>`;
-
-      const { default: html2pdf } = await import("html2pdf.js");
-
-      const options = {
-        margin: [0.5, 0.5, 0.5, 0.5],
-        filename: `${safeTitle}.pdf`,
-        image: {
-          type: "jpeg",
-          quality: 0.98,
-        },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          letterRendering: true,
-          logging: false,
-          removeContainer: true,
-          backgroundColor: "#ffffff",
-        },
-        jsPDF: {
-          unit: "in",
-          format: "a4",
-          orientation: "portrait",
-          compress: true,
-        },
-      };
-
-      await html2pdf().set(options).from(pdfHtml).save();
+      await generatePDFInIframe(content, title);
       toast.success("PDF downloaded successfully!");
     } catch (error) {
+      console.error("PDF export error:", error);
       toast.error("PDF export failed. Please try again.");
     } finally {
       isProcessingRef.current = false;
-      if (dropdownCloseTimeoutRef.current) {
-        clearTimeout(dropdownCloseTimeoutRef.current);
-      }
-      dropdownCloseTimeoutRef.current = setTimeout(() => {
-        setShowExport(false);
-      }, 500);
+      setIsExporting(false);
     }
-  }, [content, title, sanitizeHtmlForPDF]);
+  }, [content, title, generatePDFInIframe]);
 
   const performOtherExport = useCallback(
     async (format: "word" | "html" | "text") => {
-      if (!content || !title || isProcessingRef.current) {
+      if (!content || !title || isProcessingRef.current || isExporting) {
         if (!content || !title) {
           toast.error("No content available for export");
         }
@@ -407,6 +334,8 @@ const Toolbar: React.FC<ToolbarProps> = ({
       }
 
       isProcessingRef.current = true;
+      setIsExporting(true);
+      setShowExport(false);
 
       try {
         const safeTitle = (title || "document")
@@ -482,9 +411,9 @@ const Toolbar: React.FC<ToolbarProps> = ({
             break;
 
           case "text":
-            const div = document.createElement("div");
-            div.innerHTML = content;
-            const textContent = div.textContent || div.innerText || "";
+            const tempDiv = document.createElement("div");
+            tempDiv.innerHTML = content;
+            const textContent = tempDiv.textContent || tempDiv.innerText || "";
 
             const fullText = `${title}\n${"=".repeat(
               title.length
@@ -509,7 +438,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
         toast.error(`${format.toUpperCase()} export failed`);
       } finally {
         isProcessingRef.current = false;
-        setShowExport(false);
+        setIsExporting(false);
       }
     },
     [content, title]
@@ -539,14 +468,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [closeAllDropdowns]);
-
-  React.useEffect(() => {
-    return () => {
-      if (dropdownCloseTimeoutRef.current) {
-        clearTimeout(dropdownCloseTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const addLink = useCallback(() => {
     const url = prompt("Enter URL:");
@@ -738,17 +659,20 @@ const Toolbar: React.FC<ToolbarProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!isProcessingRef.current) {
+                  if (!isExporting) {
                     setShowExport(!showExport);
                     setShowFontSize(false);
                     setShowFontFamily(false);
                     setShowMoreTools(false);
                   }
                 }}
-                className="toolbar-button flex items-center gap-1 px-2 sm:px-4 py-1.5 sm:py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-xs sm:text-sm cursor-pointer"
+                disabled={isExporting}
+                className={`toolbar-button flex items-center gap-1 px-2 sm:px-4 py-1.5 sm:py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-xs sm:text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <Download className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Export</span>
+                <span className="hidden sm:inline">
+                  {isExporting ? "Exporting..." : "Export"}
+                </span>
               </button>
             </div>
           </div>
@@ -806,7 +730,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
             </div>
           )}
 
-          {showExport && (
+          {showExport && !isExporting && (
             <div
               className="dropdown-portal fixed bg-white border border-gray-200 rounded-lg shadow-2xl p-4 w-56"
               style={{
@@ -824,7 +748,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
                     e.stopPropagation();
                     performPDFExport();
                   }}
-                  disabled={isProcessingRef.current}
+                  disabled={isExporting}
                   className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   <FileText className="w-4 h-4 text-red-500" />
@@ -835,7 +759,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
                     e.stopPropagation();
                     performOtherExport("word");
                   }}
-                  disabled={isProcessingRef.current}
+                  disabled={isExporting}
                   className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   <File className="w-4 h-4 text-blue-500" />
@@ -846,7 +770,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
                     e.stopPropagation();
                     performOtherExport("html");
                   }}
-                  disabled={isProcessingRef.current}
+                  disabled={isExporting}
                   className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   <Globe className="w-4 h-4 text-green-500" />
@@ -857,7 +781,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
                     e.stopPropagation();
                     performOtherExport("text");
                   }}
-                  disabled={isProcessingRef.current}
+                  disabled={isExporting}
                   className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   <FileText className="w-4 h-4 text-gray-500" />

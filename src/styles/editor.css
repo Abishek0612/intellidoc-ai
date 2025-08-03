@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 .ProseMirror {
   outline: none;
   padding: 0;
@@ -5,13 +9,14 @@
   font-size: 14px;
   line-height: 1.6;
   color: #374151;
-  min-height: 500px;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  min-height: 987px;
 }
 
-.ProseMirror [style] {
-  all: revert;
+.paginated-editor {
+  height: auto !important;
+  overflow: visible !important;
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {
@@ -119,4 +124,62 @@
   width: 100%;
   max-width: 100%;
   margin: 0 auto;
+  min-height: 1123px;
+  position: relative;
+}
+
+.page-overflow-content {
+  min-height: 987px;
+  background: transparent;
+}
+
+.page-break {
+  page-break-before: always;
+  break-before: page;
+  height: 20px;
+  border-top: 2px dashed #ccc;
+  margin: 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-size: 12px;
+  background: #f9f9f9;
+}
+
+@media print {
+  .page-container {
+    box-shadow: none;
+    border: none;
+    margin: 0;
+    padding: 0;
+    page-break-after: always;
+  }
+
+  .page-break {
+    page-break-before: always;
+    break-before: page;
+    height: 0;
+    border: none;
+    margin: 0;
+    display: none;
+  }
+
+  .header,
+  .footer {
+    position: fixed;
+  }
+
+  .header {
+    top: 0;
+  }
+
+  .footer {
+    bottom: 0;
+  }
+}
+
+@page {
+  margin: 0.5in;
+  size: A4;
 }

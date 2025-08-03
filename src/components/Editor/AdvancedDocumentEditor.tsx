@@ -342,6 +342,12 @@ const AdvancedDocumentEditor: React.FC = () => {
                 {stats.characters} characters
               </span>
               <span>Page 1 of {totalPages}</span>
+              <button
+                onClick={() => editor?.chain().focus().insertPageBreak().run()}
+                className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+              >
+                Page Break
+              </button>
             </div>
             {lastSaved && (
               <span className="hidden md:inline text-xs">
