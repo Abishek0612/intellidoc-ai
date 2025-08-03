@@ -30,22 +30,26 @@ const App: React.FC = () => {
           padding: "12px",
         }}
       />
-      <style jsx global>{`
-        @media (max-width: 768px) {
-          .Toastify__toast-container {
-            width: calc(100vw - 2rem);
-            left: 1rem;
-            right: 1rem;
-            margin: 0;
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+          @media (max-width: 768px) {
+            .Toastify__toast-container {
+              width: calc(100vw - 2rem);
+              left: 1rem;
+              right: 1rem;
+              margin: 0;
+            }
+            .Toastify__toast {
+              margin-bottom: 0.5rem;
+              border-radius: 8px;
+              font-size: 13px;
+              padding: 10px;
+            }
           }
-          .Toastify__toast {
-            margin-bottom: 0.5rem;
-            border-radius: 8px;
-            font-size: 13px;
-            padding: 10px;
-          }
-        }
-      `}</style>
+        `,
+        }}
+      />
     </AppProvider>
   );
 };

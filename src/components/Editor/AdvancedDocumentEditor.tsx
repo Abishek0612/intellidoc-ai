@@ -47,15 +47,14 @@ const FontSize = Extension.create({
           fontSize: {
             default: null,
             parseHTML: (element: HTMLElement) => {
-              const fontSize = element.style.fontSize;
-              return fontSize ? fontSize.replace(/['"]+/g, "") : null;
+              return element.style.fontSize?.replace(/['"]+/g, "") || null;
             },
             renderHTML: (attributes: { fontSize?: string }) => {
               if (!attributes.fontSize) {
                 return {};
               }
               return {
-                style: `font-size: ${attributes.fontSize}`,
+                style: `font-size: ${attributes.fontSize} !important`,
               };
             },
           },
@@ -68,13 +67,13 @@ const FontSize = Extension.create({
     return {
       setFontSize:
         (fontSize: string) =>
-        ({ commands }: { commands: any }) => {
-          return commands.setMark("textStyle", { fontSize });
+        ({ chain }: { chain: any }) => {
+          return chain().setMark("textStyle", { fontSize }).run();
         },
       unsetFontSize:
         () =>
-        ({ commands }: { commands: any }) => {
-          return commands.setMark("textStyle", { fontSize: null });
+        ({ chain }: { chain: any }) => {
+          return chain().setMark("textStyle", { fontSize: null }).run();
         },
     };
   },
@@ -90,27 +89,19 @@ const AdvancedDocumentEditor: React.FC = () => {
   const extensions = useMemo(
     () => [
       StarterKit.configure({
-        strike: false,
+        heading: {
+          levels: [1, 2, 3, 4, 5, 6],
+        },
       }),
       TextStyle,
       FontSize,
       FontFamily.configure({
         types: ["textStyle"],
       }),
-      Color,
-      Underline,
-      Extension.create({
-        name: "customStrike",
-        addCommands() {
-          return {
-            toggleStrike:
-              () =>
-              ({ commands }: { commands: any }) => {
-                return commands.toggleMark("strike");
-              },
-          };
-        },
+      Color.configure({
+        types: ["textStyle"],
       }),
+      Underline,
       Link.configure({
         openOnClick: false,
       }),
@@ -263,6 +254,7 @@ const AdvancedDocumentEditor: React.FC = () => {
 
     toast.success("Document saved successfully!", {
       position: window.innerWidth < 768 ? "top-center" : "top-right",
+      toastId: "save-success",
     });
   }, [currentDocument, editor, title, dispatch]);
 
