@@ -76,15 +76,15 @@ const SavedDocuments: React.FC = () => {
   const getTypeIcon = (type: string): string => {
     switch (type) {
       case "chat":
-        return "💬";
+        return "町";
       case "research":
-        return "🔍";
+        return "剥";
       case "document":
-        return "📄";
+        return "塘";
       case "translation":
-        return "🌐";
+        return "倹";
       default:
-        return "📝";
+        return "統";
     }
   };
 
@@ -182,9 +182,7 @@ const SavedDocuments: React.FC = () => {
                 </h3>
 
                 <p className="text-xs lg:text-sm text-gray-600 mb-3 line-clamp-3">
-                  {typeof document.content === "string"
-                    ? document.content.substring(0, 100) + "..."
-                    : "Chat conversation"}
+                  {document.preview}
                 </p>
 
                 <div className="flex items-center justify-between text-xs text-gray-500">
