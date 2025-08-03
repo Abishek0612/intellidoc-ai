@@ -12,6 +12,14 @@ export default defineConfig({
   },
   build: {
     target: "esnext",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          jspdf: ["jspdf"],
+          html2canvas: ["html2canvas"],
+        },
+      },
+    },
   },
   optimizeDeps: {
     include: ["react", "react-dom"],

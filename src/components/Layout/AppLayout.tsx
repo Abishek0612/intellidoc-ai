@@ -1,12 +1,14 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { useApp } from "../../context/AppContext";
 import Sidebar from "./Sidebar";
 import MobileHeader from "./MobileHeader";
-import DocumentEditor from "../Pages/DocumentEditor";
-import ChatPage from "../Pages/ChatPage";
-import ResearchPage from "../Pages/ResearchPage";
-import TranslatePage from "../Pages/TranslatePage";
-import SavedDocuments from "../Pages/SavedDocuments";
+import LoadingSpinner from "../Common/LoadingSpinner";
+
+const DocumentEditor = React.lazy(() => import("../Pages/DocumentEditor"));
+const ChatPage = React.lazy(() => import("../Pages/ChatPage"));
+const ResearchPage = React.lazy(() => import("../Pages/ResearchPage"));
+const TranslatePage = React.lazy(() => import("../Pages/TranslatePage"));
+const SavedDocuments = React.lazy(() => import("../Pages/SavedDocuments"));
 
 const AppLayout: React.FC = () => {
   const { state } = useApp();
@@ -35,7 +37,9 @@ const AppLayout: React.FC = () => {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
-          {renderCurrentPage()}
+          <Suspense fallback={<LoadingSpinner />}>
+            {renderCurrentPage()}
+          </Suspense>
         </div>
       </div>
     </div>
