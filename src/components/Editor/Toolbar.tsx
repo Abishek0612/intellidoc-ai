@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useRef } from "react";
 import { Editor } from "@tiptap/react";
 import {
   Bold,
@@ -44,9 +44,15 @@ const Toolbar: React.FC<ToolbarProps> = ({
   const [showFontSize, setShowFontSize] = useState(false);
   const [showFontFamily, setShowFontFamily] = useState(false);
   const [showMoreTools, setShowMoreTools] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
+  const [currentFontSize, setCurrentFontSize] = useState("16px");
+  const [currentFontFamily, setCurrentFontFamily] = useState("Arial");
 
-  if (!editor) return null;
+  const isProcessingRef = useRef(false);
+  const dropdownCloseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  if (!editor) {
+    return null;
+  }
 
   const fontSizes: FontOption[] = useMemo(
     () => [
@@ -78,231 +84,469 @@ const Toolbar: React.FC<ToolbarProps> = ({
     []
   );
 
-  const setFontSize = useCallback(
+  const applyFontSize = useCallback(
     (size: string) => {
-      console.log("Setting font size:", size);
+      if (!editor) return;
 
-      const { from, to } = editor.state.selection;
-      if (from === to) {
-        editor
-          .chain()
-          .focus()
-          .selectAll()
-          .setMark("textStyle", { fontSize: size })
-          .run();
-      } else {
-        editor.chain().focus().setMark("textStyle", { fontSize: size }).run();
-      }
-
-      setShowFontSize(false);
-      console.log("Font size applied");
-    },
-    [editor]
-  );
-
-  const setFontFamily = useCallback(
-    (family: string) => {
-      console.log("Setting font family:", family);
-
-      const { from, to } = editor.state.selection;
-      if (from === to) {
-        editor
-          .chain()
-          .focus()
-          .selectAll()
-          .setMark("textStyle", { fontFamily: family })
-          .run();
-      } else {
-        editor
-          .chain()
-          .focus()
-          .setMark("textStyle", { fontFamily: family })
-          .run();
-      }
-
-      setShowFontFamily(false);
-      console.log("Font family applied");
-    },
-    [editor]
-  );
-
-  const getCurrentFontSize = useCallback(() => {
-    const attrs = editor.getAttributes("textStyle");
-    return attrs.fontSize || "14px";
-  }, [editor]);
-
-  const getCurrentFontFamily = useCallback(() => {
-    const attrs = editor.getAttributes("textStyle");
-    if (attrs.fontFamily) {
-      const family = fontFamilies.find((f) => f.value === attrs.fontFamily);
-      return family ? family.label : attrs.fontFamily.split(",")[0];
-    }
-    return "Arial";
-  }, [editor, fontFamilies]);
-
-  const downloadFile = useCallback(
-    (content: string, filename: string, mimeType: string) => {
-      console.log("Creating download for:", filename);
       try {
-        const blob = new Blob([content], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = filename;
-        link.style.display = "none";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        console.log("Download completed successfully");
-        return true;
+        const { from, to } = editor.state.selection;
+
+        if (from === to) {
+          const currentContent = editor.getHTML();
+          const wrappedContent = `<div style="font-size: ${size};">${currentContent}</div>`;
+          editor.commands.setContent(wrappedContent);
+        } else {
+          editor.chain().focus().setMark("textStyle", { fontSize: size }).run();
+        }
+
+        const editorElement = editor.view.dom as HTMLElement;
+        if (editorElement) {
+          editorElement.style.fontSize = size;
+        }
+
+        setCurrentFontSize(size);
+        setShowFontSize(false);
+
+        toast.success(`Font size changed to ${size}`, {
+          position: window.innerWidth < 768 ? "top-center" : "top-right",
+          autoClose: 1500,
+        });
       } catch (error) {
-        console.error("Download failed:", error);
-        return false;
+        toast.error("Failed to change font size");
       }
     },
-    []
+    [editor]
   );
 
-  const handleExport = useCallback(
-    async (format: "pdf" | "word" | "html" | "text") => {
-      console.log("Export started:", format);
+  const applyFontFamily = useCallback(
+    (family: string) => {
+      if (!editor) return;
 
+      try {
+        const { from, to } = editor.state.selection;
+
+        if (from === to) {
+          const currentContent = editor.getHTML();
+          const wrappedContent = `<div style="font-family: ${family};">${currentContent}</div>`;
+          editor.commands.setContent(wrappedContent);
+        } else {
+          editor
+            .chain()
+            .focus()
+            .setMark("textStyle", { fontFamily: family })
+            .run();
+        }
+
+        const editorElement = editor.view.dom as HTMLElement;
+        if (editorElement) {
+          editorElement.style.fontFamily = family;
+        }
+
+        const familyName =
+          fontFamilies.find((f) => f.value === family)?.label || family;
+        setCurrentFontFamily(familyName);
+        setShowFontFamily(false);
+
+        toast.success(`Font changed to ${familyName}`, {
+          position: window.innerWidth < 768 ? "top-center" : "top-right",
+          autoClose: 1500,
+        });
+      } catch (error) {
+        toast.error("Failed to change font family");
+      }
+    },
+    [editor, fontFamilies]
+  );
+
+  const sanitizeHtmlForPDF = useCallback((htmlContent: string): string => {
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = htmlContent;
+
+    const allElements = tempDiv.querySelectorAll("*");
+
+    allElements.forEach((element) => {
+      element.removeAttribute("style");
+      element.removeAttribute("class");
+
+      const attributes = Array.from(element.attributes);
+      attributes.forEach((attr) => {
+        if (
+          attr.name.startsWith("data-") ||
+          attr.name.startsWith("contenteditable") ||
+          attr.name === "spellcheck" ||
+          attr.name === "role" ||
+          attr.name === "aria-" ||
+          attr.name.startsWith("aria")
+        ) {
+          element.removeAttribute(attr.name);
+        }
+      });
+
+      if (element.textContent) {
+        element.textContent = element.textContent.replace(
+          /oklch\([^)]*\)/g,
+          ""
+        );
+        element.textContent = element.textContent.replace(/rgb\([^)]*\)/g, "");
+        element.textContent = element.textContent.replace(/rgba\([^)]*\)/g, "");
+        element.textContent = element.textContent.replace(/hsl\([^)]*\)/g, "");
+        element.textContent = element.textContent.replace(/hsla\([^)]*\)/g, "");
+      }
+    });
+
+    let cleanHtml = tempDiv.innerHTML;
+
+    cleanHtml = cleanHtml.replace(/style\s*=\s*"[^"]*"/gi, "");
+    cleanHtml = cleanHtml.replace(/class\s*=\s*"[^"]*"/gi, "");
+    cleanHtml = cleanHtml.replace(/data-[^=]*\s*=\s*"[^"]*"/gi, "");
+    cleanHtml = cleanHtml.replace(/oklch\([^)]*\)/gi, "");
+    cleanHtml = cleanHtml.replace(/rgb\([^)]*\)/gi, "");
+    cleanHtml = cleanHtml.replace(/rgba\([^)]*\)/gi, "");
+    cleanHtml = cleanHtml.replace(/hsl\([^)]*\)/gi, "");
+    cleanHtml = cleanHtml.replace(/hsla\([^)]*\)/gi, "");
+
+    return cleanHtml;
+  }, []);
+
+  const performPDFExport = useCallback(async () => {
+    if (!content || !title || isProcessingRef.current) {
       if (!content || !title) {
-        console.error("Missing content or title");
         toast.error("No content available for export");
+      }
+      return;
+    }
+
+    isProcessingRef.current = true;
+
+    try {
+      const safeTitle = (title || "document")
+        .replace(/[^a-z0-9\s]/gi, "_")
+        .replace(/\s+/g, "_");
+      const cleanContent = sanitizeHtmlForPDF(content);
+
+      const pdfHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body { 
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 14px;
+            line-height: 1.6; 
+            color: #333;
+            padding: 40px;
+            background: #fff;
+        }
+        h1 { 
+            color: #2c3e50;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 24px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 { 
+            color: #34495e;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px 0 16px 0;
+        }
+        h3 { 
+            color: #34495e;
+            font-size: 20px;
+            font-weight: bold;
+            margin: 18px 0 14px 0;
+        }
+        h4, h5, h6 { 
+            color: #34495e;
+            font-weight: bold;
+            margin: 16px 0 12px 0;
+        }
+        p { 
+            margin: 12px 0;
+            text-align: justify;
+        }
+        ul, ol { 
+            margin: 16px 0;
+            padding-left: 32px;
+        }
+        li { 
+            margin: 6px 0;
+        }
+        strong, b { 
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        em, i { 
+            font-style: italic;
+        }
+        u { 
+            text-decoration: underline;
+        }
+        s, strike { 
+            text-decoration: line-through;
+        }
+        blockquote {
+            border-left: 4px solid #3498db;
+            margin: 20px 0;
+            padding: 15px 15px 15px 20px;
+            font-style: italic;
+            color: #7f8c8d;
+            background: #f8f9fa;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+            border: 1px solid #bdc3c7;
+        }
+        table td, table th {
+            border: 1px solid #bdc3c7;
+            padding: 12px;
+            text-align: left;
+            vertical-align: top;
+        }
+        table th {
+            background: #ecf0f1;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            margin: 16px 0;
+            display: block;
+        }
+        a {
+            color: #3498db;
+            text-decoration: underline;
+        }
+        code {
+            background: #f1f2f6;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: Consolas, Monaco, monospace;
+            font-size: 12px;
+        }
+        pre {
+            background: #f1f2f6;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 16px 0;
+        }
+        .text-center { text-align: center; }
+        .text-left { text-align: left; }
+        .text-right { text-align: right; }
+    </style>
+</head>
+<body>
+    <h1>${title}</h1>
+    ${cleanContent}
+</body>
+</html>`;
+
+      const { default: html2pdf } = await import("html2pdf.js");
+
+      const options = {
+        margin: [0.5, 0.5, 0.5, 0.5],
+        filename: `${safeTitle}.pdf`,
+        image: {
+          type: "jpeg",
+          quality: 0.98,
+        },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          letterRendering: true,
+          logging: false,
+          removeContainer: true,
+          backgroundColor: "#ffffff",
+        },
+        jsPDF: {
+          unit: "in",
+          format: "a4",
+          orientation: "portrait",
+          compress: true,
+        },
+      };
+
+      await html2pdf().set(options).from(pdfHtml).save();
+      toast.success("PDF downloaded successfully!");
+    } catch (error) {
+      toast.error("PDF export failed. Please try again.");
+    } finally {
+      isProcessingRef.current = false;
+      if (dropdownCloseTimeoutRef.current) {
+        clearTimeout(dropdownCloseTimeoutRef.current);
+      }
+      dropdownCloseTimeoutRef.current = setTimeout(() => {
+        setShowExport(false);
+      }, 500);
+    }
+  }, [content, title, sanitizeHtmlForPDF]);
+
+  const performOtherExport = useCallback(
+    async (format: "word" | "html" | "text") => {
+      if (!content || !title || isProcessingRef.current) {
+        if (!content || !title) {
+          toast.error("No content available for export");
+        }
         return;
       }
 
-      setIsExporting(true);
+      isProcessingRef.current = true;
 
       try {
-        const filename = title
+        const safeTitle = (title || "document")
           .replace(/[^a-z0-9\s]/gi, "_")
           .replace(/\s+/g, "_");
-        console.log("Safe filename:", filename);
 
-        if (format === "pdf") {
-          console.log("Starting PDF export");
-          try {
-            console.log("Importing html2pdf");
-            const html2pdfModule = await import("html2pdf.js");
-            const html2pdf = html2pdfModule.default;
-            console.log("html2pdf imported successfully");
-
-            const htmlContent = `
-            <div style="font-family: Arial, sans-serif; line-height: 1.6; padding: 40px; color: #333;">
-              <h1 style="color: #333; margin-bottom: 20px; font-size: 24px;">${title}</h1>
-              <div style="font-size: 14px;">${content}</div>
-            </div>
-          `;
-
-            console.log("Creating PDF element");
-            const element = document.createElement("div");
-            element.innerHTML = htmlContent;
-            document.body.appendChild(element);
-
-            const options = {
-              margin: 0.5,
-              filename: `${filename}.pdf`,
-              image: { type: "jpeg", quality: 0.98 },
-              html2canvas: { scale: 2, useCORS: true },
-              jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
-            };
-
-            console.log("Generating PDF");
-            await html2pdf().set(options).from(element).save();
-
-            document.body.removeChild(element);
-            console.log("PDF export completed");
-            toast.success("PDF exported successfully!");
-          } catch (error) {
-            console.error("PDF export error:", error);
-            toast.error("PDF export failed. Please try again.");
-          }
-        } else if (format === "word") {
-          console.log("Starting Word export");
-          const wordContent = `<!DOCTYPE html>
+        switch (format) {
+          case "word":
+            const wordContent = `<!DOCTYPE html>
 <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'>
 <head>
-  <meta charset='utf-8'>
-  <title>${title}</title>
+    <meta charset="UTF-8">
+    <title>${title}</title>
+    <style>
+        body { font-family: Arial; padding: 20px; line-height: 1.6; }
+        h1 { color: #333; margin-bottom: 20px; }
+    </style>
 </head>
 <body>
-  <h1>${title}</h1>
-  <div>${content}</div>
+    <h1>${title}</h1>
+    ${content}
 </body>
 </html>`;
 
-          const success = downloadFile(
-            wordContent,
-            `${filename}.doc`,
-            "application/msword"
-          );
-          if (success) {
-            toast.success("Word document exported!");
-          } else {
-            toast.error("Word export failed");
-          }
-        } else if (format === "html") {
-          console.log("Starting HTML export");
-          const htmlContent = `<!DOCTYPE html>
-<html>
+            const wordBlob = new Blob([wordContent], {
+              type: "application/msword",
+            });
+            const wordUrl = URL.createObjectURL(wordBlob);
+            const wordLink = document.createElement("a");
+            wordLink.href = wordUrl;
+            wordLink.download = `${safeTitle}.doc`;
+            wordLink.style.display = "none";
+
+            document.body.appendChild(wordLink);
+            wordLink.click();
+            document.body.removeChild(wordLink);
+            URL.revokeObjectURL(wordUrl);
+
+            toast.success("Word document downloaded!");
+            break;
+
+          case "html":
+            const htmlContent = `<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>${title}</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; color: #333; }
-    h1 { color: #333; margin-bottom: 20px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title}</title>
+    <style>
+        body { font-family: Arial; padding: 20px; line-height: 1.6; }
+        h1 { color: #333; margin-bottom: 20px; }
+    </style>
 </head>
 <body>
-  <h1>${title}</h1>
-  <div>${content}</div>
+    <h1>${title}</h1>
+    ${content}
 </body>
 </html>`;
 
-          const success = downloadFile(
-            htmlContent,
-            `${filename}.html`,
-            "text/html"
-          );
-          if (success) {
-            toast.success("HTML exported!");
-          } else {
-            toast.error("HTML export failed");
-          }
-        } else if (format === "text") {
-          console.log("Starting text export");
-          const tempDiv = document.createElement("div");
-          tempDiv.innerHTML = content;
-          const textContent = tempDiv.textContent || tempDiv.innerText || "";
-          const fullText = `${title}\n${"=".repeat(
-            title.length
-          )}\n\n${textContent}`;
+            const htmlBlob = new Blob([htmlContent], { type: "text/html" });
+            const htmlUrl = URL.createObjectURL(htmlBlob);
+            const htmlLink = document.createElement("a");
+            htmlLink.href = htmlUrl;
+            htmlLink.download = `${safeTitle}.html`;
+            htmlLink.style.display = "none";
 
-          const success = downloadFile(
-            fullText,
-            `${filename}.txt`,
-            "text/plain"
-          );
-          if (success) {
-            toast.success("Text file exported!");
-          } else {
-            toast.error("Text export failed");
-          }
+            document.body.appendChild(htmlLink);
+            htmlLink.click();
+            document.body.removeChild(htmlLink);
+            URL.revokeObjectURL(htmlUrl);
+
+            toast.success("HTML file downloaded!");
+            break;
+
+          case "text":
+            const div = document.createElement("div");
+            div.innerHTML = content;
+            const textContent = div.textContent || div.innerText || "";
+
+            const fullText = `${title}\n${"=".repeat(
+              title.length
+            )}\n\n${textContent}`;
+
+            const textBlob = new Blob([fullText], { type: "text/plain" });
+            const textUrl = URL.createObjectURL(textBlob);
+            const textLink = document.createElement("a");
+            textLink.href = textUrl;
+            textLink.download = `${safeTitle}.txt`;
+            textLink.style.display = "none";
+
+            document.body.appendChild(textLink);
+            textLink.click();
+            document.body.removeChild(textLink);
+            URL.revokeObjectURL(textUrl);
+
+            toast.success("Text file downloaded!");
+            break;
         }
       } catch (error) {
-        console.error("Export error:", error);
-        toast.error("Export failed");
+        toast.error(`${format.toUpperCase()} export failed`);
       } finally {
-        setIsExporting(false);
+        isProcessingRef.current = false;
         setShowExport(false);
-        console.log("Export process completed");
       }
     },
-    [content, title, downloadFile]
+    [content, title]
   );
+
+  const closeAllDropdowns = useCallback(() => {
+    setShowExport(false);
+    setShowFontSize(false);
+    setShowFontFamily(false);
+    setShowMoreTools(false);
+  }, []);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+
+      if (
+        target.closest(".dropdown-portal") ||
+        target.closest(".toolbar-button")
+      ) {
+        return;
+      }
+
+      closeAllDropdowns();
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [closeAllDropdowns]);
+
+  React.useEffect(() => {
+    return () => {
+      if (dropdownCloseTimeoutRef.current) {
+        clearTimeout(dropdownCloseTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const addLink = useCallback(() => {
     const url = prompt("Enter URL:");
@@ -326,35 +570,8 @@ const Toolbar: React.FC<ToolbarProps> = ({
       .run();
   }, [editor]);
 
-  const closeAllDropdowns = useCallback(() => {
-    setShowExport(false);
-    setShowFontSize(false);
-    setShowFontFamily(false);
-    setShowMoreTools(false);
-  }, []);
-
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element;
-      if (!target.closest(".toolbar-dropdown")) {
-        closeAllDropdowns();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [closeAllDropdowns]);
-
   return (
     <>
-      {(showExport || showFontSize || showFontFamily || showMoreTools) && (
-        <div
-          className="fixed inset-0 bg-transparent"
-          style={{ zIndex: 50000 }}
-          onClick={closeAllDropdowns}
-        />
-      )}
-
       <div
         className="bg-white border-b border-gray-200 flex-shrink-0 relative"
         style={{ zIndex: 1000 }}
@@ -378,34 +595,34 @@ const Toolbar: React.FC<ToolbarProps> = ({
           </div>
 
           <div className="hidden md:flex items-center gap-2 mr-4">
-            <div className="relative toolbar-dropdown">
+            <div className="relative">
               <button
-                onClick={() => {
-                  console.log("Font family button clicked");
+                onClick={(e) => {
+                  e.stopPropagation();
                   setShowFontFamily(!showFontFamily);
                   setShowFontSize(false);
                   setShowExport(false);
                   setShowMoreTools(false);
                 }}
-                className="flex items-center gap-1 px-2 py-1.5 hover:bg-gray-100 rounded text-xs border border-gray-300 min-w-[120px] justify-between"
+                className="toolbar-button flex items-center gap-1 px-2 py-1.5 hover:bg-gray-100 rounded text-xs border border-gray-300 min-w-[120px] justify-between"
               >
-                <span className="truncate">{getCurrentFontFamily()}</span>
+                <span className="truncate">{currentFontFamily}</span>
                 <ChevronDown className="w-3 h-3" />
               </button>
             </div>
 
-            <div className="relative toolbar-dropdown">
+            <div className="relative">
               <button
-                onClick={() => {
-                  console.log("Font size button clicked");
+                onClick={(e) => {
+                  e.stopPropagation();
                   setShowFontSize(!showFontSize);
                   setShowFontFamily(false);
                   setShowExport(false);
                   setShowMoreTools(false);
                 }}
-                className="flex items-center gap-1 px-2 py-1.5 hover:bg-gray-100 rounded text-xs border border-gray-300 min-w-[70px] justify-between"
+                className="toolbar-button flex items-center gap-1 px-2 py-1.5 hover:bg-gray-100 rounded text-xs border border-gray-300 min-w-[70px] justify-between"
               >
-                <span>{getCurrentFontSize()}</span>
+                <span>{currentFontSize}</span>
                 <ChevronDown className="w-3 h-3" />
               </button>
             </div>
@@ -491,15 +708,16 @@ const Toolbar: React.FC<ToolbarProps> = ({
             </button>
           </div>
 
-          <div className="md:hidden relative toolbar-dropdown">
+          <div className="md:hidden relative">
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setShowMoreTools(!showMoreTools);
                 setShowExport(false);
                 setShowFontSize(false);
                 setShowFontFamily(false);
               }}
-              className="p-1.5 hover:bg-gray-100 rounded"
+              className="toolbar-button p-1.5 hover:bg-gray-100 rounded"
             >
               <MoreHorizontal className="w-4 h-4" />
             </button>
@@ -510,238 +728,248 @@ const Toolbar: React.FC<ToolbarProps> = ({
           <div className="flex items-center gap-1 sm:gap-2">
             <button
               onClick={onSave}
-              className="flex items-center gap-1 px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-xs sm:text-sm"
+              className="flex items-center gap-1 px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-xs sm:text-sm cursor-pointer"
             >
               <Save className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Save</span>
             </button>
 
-            <div className="relative toolbar-dropdown">
+            <div className="relative">
               <button
-                onClick={() => {
-                  console.log("Export button clicked");
-                  setShowExport(!showExport);
-                  setShowFontSize(false);
-                  setShowFontFamily(false);
-                  setShowMoreTools(false);
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isProcessingRef.current) {
+                    setShowExport(!showExport);
+                    setShowFontSize(false);
+                    setShowFontFamily(false);
+                    setShowMoreTools(false);
+                  }
                 }}
-                disabled={isExporting}
-                className="flex items-center gap-1 px-2 sm:px-4 py-1.5 sm:py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 text-xs sm:text-sm"
+                className="toolbar-button flex items-center gap-1 px-2 sm:px-4 py-1.5 sm:py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-xs sm:text-sm cursor-pointer"
               >
                 <Download className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">
-                  {isExporting ? "Exporting..." : "Export"}
-                </span>
+                <span className="hidden sm:inline">Export</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {showFontFamily && (
-        <div
-          className="fixed bg-white border border-gray-200 rounded-lg shadow-2xl min-w-[160px] max-h-64 overflow-y-auto"
-          style={{
-            zIndex: 50001,
-            top: "140px",
-            left: "420px",
-          }}
-        >
-          {fontFamilies.map((font) => (
-            <button
-              key={font.value}
-              onClick={() => {
-                console.log("Font family selected:", font.value);
-                setFontFamily(font.value);
+      {typeof document !== "undefined" && (
+        <>
+          {showFontFamily && (
+            <div
+              className="dropdown-portal fixed bg-white border border-gray-200 rounded-lg shadow-2xl min-w-[160px] max-h-64 overflow-y-auto"
+              style={{
+                zIndex: 999999,
+                top: "140px",
+                left: "420px",
               }}
-              className="block w-full text-left px-3 py-2 hover:bg-gray-100 text-sm transition-colors"
-              style={{ fontFamily: font.value }}
-            >
-              {font.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {showFontSize && (
-        <div
-          className="fixed bg-white border border-gray-200 rounded-lg shadow-2xl max-h-64 overflow-y-auto"
-          style={{
-            zIndex: 50001,
-            top: "140px",
-            left: "550px",
-          }}
-        >
-          {fontSizes.map((size) => (
-            <button
-              key={size.value}
-              onClick={() => {
-                console.log("Font size selected:", size.value);
-                setFontSize(size.value);
-              }}
-              className="block w-full text-left px-3 py-2 hover:bg-gray-100 text-sm transition-colors whitespace-nowrap"
-            >
-              {size.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {showExport && (
-        <div
-          className="fixed bg-white border border-gray-200 rounded-lg shadow-2xl p-4 w-56"
-          style={{
-            zIndex: 50001,
-            top: "140px",
-            right: "20px",
-          }}
-        >
-          <h3 className="text-sm font-medium text-gray-900 mb-3">
-            Export Document
-          </h3>
-          <div className="space-y-2">
-            <button
-              onClick={() => {
-                console.log("PDF export clicked");
-                handleExport("pdf");
-              }}
-              disabled={isExporting}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-            >
-              <FileText className="w-4 h-4 text-red-500" />
-              Export as PDF
-            </button>
-            <button
-              onClick={() => {
-                console.log("Word export clicked");
-                handleExport("word");
-              }}
-              disabled={isExporting}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-            >
-              <File className="w-4 h-4 text-blue-500" />
-              Export as Word
-            </button>
-            <button
-              onClick={() => {
-                console.log("HTML export clicked");
-                handleExport("html");
-              }}
-              disabled={isExporting}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-            >
-              <Globe className="w-4 h-4 text-green-500" />
-              Export as HTML
-            </button>
-            <button
-              onClick={() => {
-                console.log("Text export clicked");
-                handleExport("text");
-              }}
-              disabled={isExporting}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-            >
-              <FileText className="w-4 h-4 text-gray-500" />
-              Export as Text
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showMoreTools && (
-        <div
-          className="fixed bg-white border border-gray-200 rounded-lg shadow-2xl p-4 w-80"
-          style={{
-            zIndex: 50001,
-            top: "140px",
-            right: "20px",
-          }}
-        >
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            <select
-              value={getCurrentFontFamily()}
-              onChange={(e) => {
-                const font = fontFamilies.find(
-                  (f) => f.label === e.target.value
-                );
-                if (font) {
-                  console.log("Mobile font family selected:", font.value);
-                  setFontFamily(font.value);
-                }
-              }}
-              className="px-2 py-1 text-xs border rounded"
             >
               {fontFamilies.map((font) => (
-                <option key={font.value} value={font.label}>
+                <button
+                  key={font.value}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    applyFontFamily(font.value);
+                  }}
+                  className="block w-full text-left px-3 py-2 hover:bg-gray-100 text-sm transition-colors cursor-pointer"
+                  style={{ fontFamily: font.value }}
+                >
                   {font.label}
-                </option>
+                </button>
               ))}
-            </select>
-            <select
-              value={getCurrentFontSize()}
-              onChange={(e) => {
-                console.log("Mobile font size selected:", e.target.value);
-                setFontSize(e.target.value);
+            </div>
+          )}
+
+          {showFontSize && (
+            <div
+              className="dropdown-portal fixed bg-white border border-gray-200 rounded-lg shadow-2xl max-h-64 overflow-y-auto"
+              style={{
+                zIndex: 999999,
+                top: "140px",
+                left: "550px",
               }}
-              className="px-2 py-1 text-xs border rounded"
             >
               {fontSizes.map((size) => (
-                <option key={size.value} value={size.value}>
+                <button
+                  key={size.value}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    applyFontSize(size.value);
+                  }}
+                  className="block w-full text-left px-3 py-2 hover:bg-gray-100 text-sm transition-colors whitespace-nowrap cursor-pointer"
+                >
                   {size.label}
-                </option>
+                </button>
               ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-4 gap-1">
-            <button
-              onClick={() => editor.chain().focus().toggleBulletList().run()}
-              className="p-2 hover:bg-gray-100 rounded"
+            </div>
+          )}
+
+          {showExport && (
+            <div
+              className="dropdown-portal fixed bg-white border border-gray-200 rounded-lg shadow-2xl p-4 w-56"
+              style={{
+                zIndex: 999999,
+                top: "140px",
+                right: "20px",
+              }}
             >
-              <List className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => editor.chain().focus().toggleOrderedList().run()}
-              className="p-2 hover:bg-gray-100 rounded"
+              <h3 className="text-sm font-medium text-gray-900 mb-3">
+                Export Document
+              </h3>
+              <div className="space-y-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    performPDFExport();
+                  }}
+                  disabled={isProcessingRef.current}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  <FileText className="w-4 h-4 text-red-500" />
+                  Export as PDF
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    performOtherExport("word");
+                  }}
+                  disabled={isProcessingRef.current}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  <File className="w-4 h-4 text-blue-500" />
+                  Export as Word
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    performOtherExport("html");
+                  }}
+                  disabled={isProcessingRef.current}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  <Globe className="w-4 h-4 text-green-500" />
+                  Export as HTML
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    performOtherExport("text");
+                  }}
+                  disabled={isProcessingRef.current}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  <FileText className="w-4 h-4 text-gray-500" />
+                  Export as Text
+                </button>
+              </div>
+            </div>
+          )}
+
+          {showMoreTools && (
+            <div
+              className="dropdown-portal fixed bg-white border border-gray-200 rounded-lg shadow-2xl p-4 w-80"
+              style={{
+                zIndex: 999999,
+                top: "140px",
+                right: "20px",
+              }}
             >
-              <ListOrdered className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => editor.chain().focus().setTextAlign("left").run()}
-              className="p-2 hover:bg-gray-100 rounded"
-            >
-              <AlignLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() =>
-                editor.chain().focus().setTextAlign("center").run()
-              }
-              className="p-2 hover:bg-gray-100 rounded"
-            >
-              <AlignCenter className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => editor.chain().focus().toggleBlockquote().run()}
-              className="p-2 hover:bg-gray-100 rounded"
-            >
-              <Quote className="w-4 h-4" />
-            </button>
-            <button onClick={addLink} className="p-2 hover:bg-gray-100 rounded">
-              <Link className="w-4 h-4" />
-            </button>
-            <button
-              onClick={addImage}
-              className="p-2 hover:bg-gray-100 rounded"
-            >
-              <Image className="w-4 h-4" />
-            </button>
-            <button
-              onClick={insertTable}
-              className="p-2 hover:bg-gray-100 rounded"
-            >
-              <Table className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <select
+                  value={currentFontFamily}
+                  onChange={(e) => {
+                    const font = fontFamilies.find(
+                      (f) => f.label === e.target.value
+                    );
+                    if (font) {
+                      applyFontFamily(font.value);
+                    }
+                  }}
+                  className="px-2 py-1 text-xs border rounded cursor-pointer"
+                >
+                  {fontFamilies.map((font) => (
+                    <option key={font.value} value={font.label}>
+                      {font.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={currentFontSize}
+                  onChange={(e) => applyFontSize(e.target.value)}
+                  className="px-2 py-1 text-xs border rounded cursor-pointer"
+                >
+                  {fontSizes.map((size) => (
+                    <option key={size.value} value={size.value}>
+                      {size.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-4 gap-1">
+                <button
+                  onClick={() =>
+                    editor.chain().focus().toggleBulletList().run()
+                  }
+                  className="p-2 hover:bg-gray-100 rounded cursor-pointer"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() =>
+                    editor.chain().focus().toggleOrderedList().run()
+                  }
+                  className="p-2 hover:bg-gray-100 rounded cursor-pointer"
+                >
+                  <ListOrdered className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() =>
+                    editor.chain().focus().setTextAlign("left").run()
+                  }
+                  className="p-2 hover:bg-gray-100 rounded cursor-pointer"
+                >
+                  <AlignLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() =>
+                    editor.chain().focus().setTextAlign("center").run()
+                  }
+                  className="p-2 hover:bg-gray-100 rounded cursor-pointer"
+                >
+                  <AlignCenter className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() =>
+                    editor.chain().focus().toggleBlockquote().run()
+                  }
+                  className="p-2 hover:bg-gray-100 rounded cursor-pointer"
+                >
+                  <Quote className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={addLink}
+                  className="p-2 hover:bg-gray-100 rounded cursor-pointer"
+                >
+                  <Link className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={addImage}
+                  className="p-2 hover:bg-gray-100 rounded cursor-pointer"
+                >
+                  <Image className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={insertTable}
+                  className="p-2 hover:bg-gray-100 rounded cursor-pointer"
+                >
+                  <Table className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </>
   );
