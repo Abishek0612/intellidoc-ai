@@ -11,7 +11,6 @@ import {
 import { useApp } from "../../context/AppContext";
 import { useGemini } from "../../hooks/useGemini";
 import LoadingSpinner from "../Common/LoadingSpinner";
-import { saveDocument } from "../../services/localStorage";
 import { toast } from "react-toastify";
 import { Language } from "../../types";
 
@@ -130,16 +129,6 @@ const TranslatePage: React.FC = () => {
         "translationHistory",
         JSON.stringify(updatedHistory)
       );
-
-      dispatch({
-        type: "ADD_ACTIVITY",
-        payload: {
-          type: "translation",
-          title: `Translation: ${sourceText.substring(0, 30)}...`,
-          content: translation,
-          documentId: newTranslation.id,
-        },
-      });
     } catch (error) {
       toast.error(
         `Translation failed: ${
@@ -187,8 +176,12 @@ const TranslatePage: React.FC = () => {
       return;
     }
 
+    const docId = Date.now().toString();
+    const finalTitle =
+      documentTitle || `Translation - ${sourceText.substring(0, 30)}...`;
+
     const translationDocument = {
-      title: documentTitle || `Translation - ${sourceText.substring(0, 30)}...`,
+      title: finalTitle,
       type: "translation" as const,
       sourceText,
       translatedText,
@@ -201,24 +194,28 @@ const TranslatePage: React.FC = () => {
       preview: translatedText.substring(0, 150),
     };
 
-    const success = saveDocument(translationDocument);
-    if (success) {
-      dispatch({
-        type: "SAVE_DOCUMENT",
-        payload: {
-          ...translationDocument,
-          id: Date.now().toString(),
-          lastModified: new Date().toISOString(),
-        },
-      });
-      toast.success("Translation saved successfully!", {
-        position: window.innerWidth < 768 ? "top-center" : "top-right",
-      });
-    } else {
-      toast.error("Failed to save translation", {
-        position: window.innerWidth < 768 ? "top-center" : "top-right",
-      });
-    }
+    dispatch({
+      type: "SAVE_DOCUMENT",
+      payload: {
+        ...translationDocument,
+        id: docId,
+        lastModified: new Date().toISOString(),
+      },
+    });
+
+    dispatch({
+      type: "ADD_ACTIVITY",
+      payload: {
+        type: "translation",
+        title: finalTitle,
+        content: translationDocument.content,
+        documentId: docId,
+      },
+    });
+
+    toast.success("Translation saved successfully!", {
+      position: window.innerWidth < 768 ? "top-center" : "top-right",
+    });
   };
 
   const handleClear = (): void => {

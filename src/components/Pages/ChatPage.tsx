@@ -3,7 +3,6 @@ import { Send, Save } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { useGemini } from "../../hooks/useGemini";
 import LoadingSpinner from "../Common/LoadingSpinner";
-import { saveDocument } from "../../services/localStorage";
 import { toast } from "react-toastify";
 import { ChatMessage } from "../../types";
 
@@ -46,16 +45,6 @@ const ChatPage: React.FC = () => {
         timestamp: new Date().toISOString(),
       };
       dispatch({ type: "ADD_CHAT_MESSAGE", payload: aiMessage });
-
-      dispatch({
-        type: "ADD_ACTIVITY",
-        payload: {
-          type: "chat",
-          title: chatTitle || messageInput,
-          content: state.chatHistory,
-          documentId: Date.now().toString(),
-        },
-      });
     } catch (error) {
       const errorMessage: ChatMessage = {
         type: "error",
@@ -71,8 +60,12 @@ const ChatPage: React.FC = () => {
   };
 
   const handleSaveChat = (): void => {
+    const docId = Date.now().toString();
+    const finalChatTitle =
+      chatTitle || `Chat - ${new Date().toLocaleDateString()}`;
+
     const chatDocument = {
-      title: chatTitle || `Chat - ${new Date().toLocaleDateString()}`,
+      title: finalChatTitle,
       type: "chat" as const,
       content: JSON.stringify(state.chatHistory),
       wordCount: state.chatHistory.reduce(
@@ -90,24 +83,28 @@ const ChatPage: React.FC = () => {
           : "",
     };
 
-    const success = saveDocument(chatDocument);
-    if (success) {
-      dispatch({
-        type: "SAVE_DOCUMENT",
-        payload: {
-          ...chatDocument,
-          id: Date.now().toString(),
-          lastModified: new Date().toISOString(),
-        },
-      });
-      toast.success("Chat saved successfully!", {
-        position: window.innerWidth < 768 ? "top-center" : "top-right",
-      });
-    } else {
-      toast.error("Failed to save chat", {
-        position: window.innerWidth < 768 ? "top-center" : "top-right",
-      });
-    }
+    dispatch({
+      type: "SAVE_DOCUMENT",
+      payload: {
+        ...chatDocument,
+        id: docId,
+        lastModified: new Date().toISOString(),
+      },
+    });
+
+    dispatch({
+      type: "ADD_ACTIVITY",
+      payload: {
+        type: "chat",
+        title: finalChatTitle,
+        content: state.chatHistory,
+        documentId: docId,
+      },
+    });
+
+    toast.success("Chat saved successfully!", {
+      position: window.innerWidth < 768 ? "top-center" : "top-right",
+    });
   };
 
   const handleKeyPress = (
