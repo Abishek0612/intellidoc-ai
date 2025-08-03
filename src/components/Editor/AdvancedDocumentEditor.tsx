@@ -19,7 +19,6 @@ import { usePagination } from "../../hooks/usePagination";
 import { PageBreak } from "../../extensions/PageBreakExtension";
 import Toolbar from "./Toolbar";
 import DocumentSelector from "./DocumentSelector";
-import PageContainer from "./PageContainer";
 import { Document } from "../../types";
 import {
   generateDocumentId,
@@ -135,7 +134,7 @@ const AdvancedDocumentEditor: React.FC = () => {
     content: "",
     editorProps: {
       attributes: {
-        class: "mx-auto focus:outline-none min-h-full p-3 sm:p-6",
+        class: "ProseMirror",
       },
     },
     onUpdate: useCallback(() => {
@@ -160,7 +159,7 @@ const AdvancedDocumentEditor: React.FC = () => {
     }, []),
   });
 
-  const { pages, totalPages } = usePagination(editor);
+  const { currentPage, totalPages, scrollContainerRef } = usePagination(editor);
 
   const loadDocument = useCallback(
     (doc: Document) => {
@@ -341,7 +340,9 @@ const AdvancedDocumentEditor: React.FC = () => {
               <span className="hidden sm:inline">
                 {stats.characters} characters
               </span>
-              <span>Page 1 of {totalPages}</span>
+              <span>
+                Page {currentPage} of {totalPages}
+              </span>
               <button
                 onClick={() => editor?.chain().focus().insertPageBreak().run()}
                 className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
@@ -364,16 +365,16 @@ const AdvancedDocumentEditor: React.FC = () => {
           title={title}
         />
 
-        <div className="flex-1 overflow-y-auto p-2 sm:p-4 lg:p-8">
-          <div className="flex justify-center">
-            <div className="w-full max-w-4xl">
-              <PageContainer
-                pageNumber={1}
-                totalPages={totalPages}
-                documentTitle={title}
-              >
-                <EditorContent editor={editor} />
-              </PageContainer>
+        <div
+          ref={scrollContainerRef}
+          className="editor-scroll-container flex-1 overflow-y-auto"
+        >
+          <div className="page-stack">
+            {Array.from({ length: totalPages }).map((_, i) => (
+              <div key={i} className="page-visual-bg" />
+            ))}
+            <div className="editor-overlay">
+              <EditorContent editor={editor} />
             </div>
           </div>
         </div>

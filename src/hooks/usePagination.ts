@@ -1,109 +1,78 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Editor } from "@tiptap/react";
 import { PAGE_CONFIG } from "../utils/constants";
 
-interface Page {
-  id: number;
-  number: number;
-  content: any;
-}
-
 interface UsePaginationReturn {
-  pages: Page[];
   currentPage: number;
-  setCurrentPage: (page: number) => void;
   totalPages: number;
+  scrollContainerRef: React.RefObject<HTMLDivElement>;
 }
 
 export const usePagination = (editor: Editor | null): UsePaginationReturn => {
-  const [pages, setPages] = useState<Page[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const calculationTimeoutRef = useRef<number | null>(null);
 
-  const calculatePages = useCallback(() => {
-    if (!editor) {
-      setTotalPages(1);
-      setPages([{ id: 1, number: 1, content: null }]);
+  const calculatePageMetrics = useCallback(() => {
+    if (!editor?.view.dom || !scrollContainerRef.current) {
       return;
     }
 
-    const content = editor.getHTML();
-    if (!content || content === "<p></p>") {
-      setTotalPages(1);
-      setPages([{ id: 1, number: 1, content: null }]);
-      return;
-    }
+    const contentHeight = editor.view.dom.scrollHeight;
+    const pageContentHeight =
+      PAGE_CONFIG.A4_HEIGHT_PX - PAGE_CONFIG.MARGIN_PX * 2;
+    const calculatedTotalPages = Math.max(
+      1,
+      Math.ceil(contentHeight / pageContentHeight)
+    );
 
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = content;
-    tempDiv.style.position = "absolute";
-    tempDiv.style.top = "-9999px";
-    tempDiv.style.left = "-9999px";
-    tempDiv.style.width = `${
-      PAGE_CONFIG.A4_WIDTH_PX - PAGE_CONFIG.MARGIN_PX * 2
-    }px`;
-    tempDiv.style.fontSize = "14px";
-    tempDiv.style.lineHeight = "1.6";
-    tempDiv.style.fontFamily = "Times New Roman, serif";
-    tempDiv.style.padding = "24px";
-    tempDiv.style.visibility = "hidden";
+    const { scrollTop } = scrollContainerRef.current;
+    const effectivePageHeight = PAGE_CONFIG.A4_HEIGHT_PX;
+    const calculatedCurrentPage =
+      Math.floor(scrollTop / effectivePageHeight) + 1;
 
-    document.body.appendChild(tempDiv);
-
-    setTimeout(() => {
-      const contentHeight = tempDiv.scrollHeight;
-      const pageContentHeight =
-        PAGE_CONFIG.A4_HEIGHT_PX -
-        PAGE_CONFIG.MARGIN_PX * 2 -
-        PAGE_CONFIG.HEADER_HEIGHT_PX -
-        PAGE_CONFIG.FOOTER_HEIGHT_PX;
-
-      const calculatedPages = Math.max(
-        1,
-        Math.ceil(contentHeight / pageContentHeight)
-      );
-
-      if (calculatedPages !== totalPages) {
-        setTotalPages(calculatedPages);
-
-        const newPages: Page[] = Array.from(
-          { length: calculatedPages },
-          (_, index) => ({
-            id: index + 1,
-            number: index + 1,
-            content: null,
-          })
-        );
-
-        setPages(newPages);
-      }
-
-      document.body.removeChild(tempDiv);
-    }, 50);
-  }, [editor, totalPages]);
+    setTotalPages(calculatedTotalPages);
+    setCurrentPage(
+      Math.max(1, Math.min(calculatedCurrentPage, calculatedTotalPages))
+    );
+  }, [editor]);
 
   useEffect(() => {
     if (editor) {
-      calculatePages();
-
-      const updateHandler = (): void => {
-        calculatePages();
+      const debouncedCalculation = () => {
+        if (calculationTimeoutRef.current)
+          clearTimeout(calculationTimeoutRef.current);
+        calculationTimeoutRef.current = window.setTimeout(
+          calculatePageMetrics,
+          250
+        );
       };
 
-      editor.on("update", updateHandler);
-      editor.on("selectionUpdate", updateHandler);
+      editor.on("update", debouncedCalculation);
+      const scrollContainer = scrollContainerRef.current;
+      if (scrollContainer) {
+        scrollContainer.addEventListener("scroll", debouncedCalculation, {
+          passive: true,
+        });
+      }
+
+      const observer = new ResizeObserver(debouncedCalculation);
+      observer.observe(editor.view.dom);
+
+      setTimeout(debouncedCalculation, 100);
 
       return () => {
-        editor.off("update", updateHandler);
-        editor.off("selectionUpdate", updateHandler);
+        editor.off("update", debouncedCalculation);
+        if (scrollContainer) {
+          scrollContainer.removeEventListener("scroll", debouncedCalculation);
+        }
+        if (calculationTimeoutRef.current)
+          clearTimeout(calculationTimeoutRef.current);
+        observer.disconnect();
       };
     }
-  }, [editor, calculatePages]);
+  }, [editor, calculatePageMetrics]);
 
-  return {
-    pages,
-    currentPage,
-    setCurrentPage,
-    totalPages,
-  };
+  return { currentPage, totalPages, scrollContainerRef };
 };
