@@ -140,3 +140,7 @@ npm install
 2. Start the development server:
 
 npm run dev
+
+### Website Live site URL
+
+https://intellidocs-ai.netlify.app/
