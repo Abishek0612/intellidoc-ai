@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useApp } from "../../context/AppContext";
-import { FileText, MessageCircle, Search, X } from "lucide-react";
+import { FileText, MessageCircle, Search, X, Languages } from "lucide-react";
 import { toast } from "react-toastify";
 import { Activity } from "../../types";
 
@@ -18,26 +18,40 @@ const TodaySection: React.FC = () => {
         return <Search className="w-3 h-3" />;
       case "chat":
         return <MessageCircle className="w-3 h-3" />;
+      case "translation":
+        return <Languages className="w-3 h-3" />;
       default:
         return <FileText className="w-3 h-3" />;
     }
   };
 
   const handleActivityClick = (activity: Activity): void => {
+    const documentToLoad = state.savedDocuments.find(
+      (doc) => doc.id === activity.documentId
+    );
+
+    if (!documentToLoad) {
+      toast.warn("Associated document not found. It may have been deleted.", {
+        position: window.innerWidth < 768 ? "top-center" : "top-right",
+      });
+      return;
+    }
+
     const pageMap: Record<string, string> = {
       research: "research",
       chat: "chat",
       document: "write",
       "legal-document": "editor",
+      translation: "translate",
     };
 
-    const targetPage = pageMap[activity.type] || "editor";
+    const targetPage = pageMap[documentToLoad.type] || "editor";
 
     dispatch({
       type: "SET_CURRENT_PAGE_WITH_CONTENT",
       payload: {
         page: targetPage,
-        content: activity,
+        content: documentToLoad,
       },
     });
 
@@ -73,7 +87,7 @@ const TodaySection: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 p-4">
+    <div className="flex-1 p-4 overflow-y-auto">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-purple-200">Today</h3>
       </div>
