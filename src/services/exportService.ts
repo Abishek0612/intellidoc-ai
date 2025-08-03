@@ -1,7 +1,7 @@
 import html2pdf from "html2pdf.js";
 import { Document as DocxDocument, Packer, Paragraph, TextRun } from "docx";
 import { saveAs } from "file-saver";
-import { ExportOptions } from "../types";
+import { Document } from "../types";
 
 class ExportService {
   private sanitizeContentForPDF(htmlContent: string, title: string): string {
@@ -86,7 +86,7 @@ class ExportService {
     return tempDiv.textContent || tempDiv.innerText || "";
   }
 
-  async exportToPDF(options: ExportOptions): Promise<void> {
+  async exportToPDF(options: Document): Promise<void> {
     try {
       const { content, title } = options;
       const cleanHTML = this.sanitizeContentForPDF(content, title);
@@ -110,7 +110,7 @@ class ExportService {
     }
   }
 
-  async exportToWord(options: ExportOptions): Promise<void> {
+  async exportToWord(options: Document): Promise<void> {
     try {
       const { content, title } = options;
       const textContent = this.getTextContent(content);
@@ -156,7 +156,7 @@ class ExportService {
     }
   }
 
-  exportToHTML(options: ExportOptions): void {
+  exportToHTML(options: Document): void {
     try {
       const { content, title } = options;
       const cleanHTML = this.sanitizeContentForPDF(content, title);
@@ -175,7 +175,7 @@ class ExportService {
     }
   }
 
-  exportToText(options: ExportOptions): void {
+  exportToText(options: Document): void {
     try {
       const { content, title } = options;
       const textContent = this.getTextContent(content);
@@ -195,7 +195,9 @@ class ExportService {
     }
   }
 
-  async export(options: ExportOptions): Promise<void> {
+  async export(
+    options: Document & { format: "pdf" | "word" | "html" | "text" }
+  ): Promise<void> {
     switch (options.format) {
       case "pdf":
         return this.exportToPDF(options);

@@ -13,7 +13,7 @@ import Color from "@tiptap/extension-color";
 import TextStyle from "@tiptap/extension-text-style";
 import FontFamily from "@tiptap/extension-font-family";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Extension } from "@tiptap/core";
+import { Extension, RawCommands } from "@tiptap/core";
 import { useApp } from "../../context/AppContext";
 import { usePagination } from "../../hooks/usePagination";
 import { PageBreak } from "../../extensions/PageBreakExtension";
@@ -28,6 +28,15 @@ import {
 } from "../../utils/documentUtils";
 import { toast } from "react-toastify";
 import "../../styles/editor.css";
+
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    fontSize: {
+      setFontSize: (fontSize: string) => ReturnType;
+      unsetFontSize: () => ReturnType;
+    };
+  }
+}
 
 const FontSize = Extension.create({
   name: "fontSize",
@@ -66,12 +75,12 @@ const FontSize = Extension.create({
     return {
       setFontSize:
         (fontSize: string) =>
-        ({ chain }: { chain: any }) => {
+        ({ chain }) => {
           return chain().setMark("textStyle", { fontSize }).run();
         },
       unsetFontSize:
         () =>
-        ({ chain }: { chain: any }) => {
+        ({ chain }) => {
           return chain().setMark("textStyle", { fontSize: null }).run();
         },
     };
