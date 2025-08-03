@@ -11,12 +11,14 @@
   color: #374151;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  min-height: 987px;
+  height: auto;
+  max-height: 987px;
+  overflow-y: visible;
 }
 
-.paginated-editor {
+.ProseMirror[style] {
   height: auto !important;
-  overflow: visible !important;
+  max-height: 987px !important;
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {
@@ -124,13 +126,9 @@
   width: 100%;
   max-width: 100%;
   margin: 0 auto;
-  min-height: 1123px;
+  height: 1123px;
+  overflow: hidden;
   position: relative;
-}
-
-.page-overflow-content {
-  min-height: 987px;
-  background: transparent;
 }
 
 .page-break {
@@ -154,6 +152,7 @@
     margin: 0;
     padding: 0;
     page-break-after: always;
+    height: auto;
   }
 
   .page-break {
@@ -176,6 +175,11 @@
 
   .footer {
     bottom: 0;
+  }
+
+  .ProseMirror {
+    max-height: none !important;
+    overflow: visible !important;
   }
 }
 
