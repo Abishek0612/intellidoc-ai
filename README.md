@@ -130,3 +130,13 @@ VITE_GEMINI_API_KEY=AIzaSyBprm3ELe41fYwme4N8DKO0RCVdGjwbPyg   ||  AIzaSyCtl1SUEJ
 
 
 ```
+
+### Installation
+
+1. Install dependencies:
+
+npm install
+
+2. Start the development server:
+
+npm run dev
