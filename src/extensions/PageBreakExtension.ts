@@ -1,4 +1,3 @@
-// src/extensions/PageBreakExtension.ts
 import { Node, mergeAttributes } from "@tiptap/core";
 
 export const PageBreak = Node.create({
