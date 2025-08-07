@@ -240,24 +240,21 @@ const TranslatePage: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-screen bg-gray-50 overflow-hidden">
-      <div className="bg-white border-b border-gray-200 p-4 flex-shrink-0">
-        <div className="flex items-center justify-between mb-4">
+    <div className="flex-1 flex flex-col h-screen bg-gray-50">
+      <div className="bg-white border-b border-gray-200 p-3 sm:p-4 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3 sm:mb-4">
           <div className="flex items-center gap-2">
-            <Languages className="w-6 h-6 text-blue-500" />
-            <h1 className="text-xl font-bold">AI Translator</h1>
+            <Languages className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500" />
+            <h1 className="text-lg sm:text-xl font-bold">AI Translator</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleSaveTranslation}
-              disabled={!translatedText.trim()}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 transition-colors text-sm"
-            >
-              <Save className="w-4 h-4" />
-              <span className="hidden sm:inline">Save Translation</span>
-              <span className="sm:hidden">Save</span>
-            </button>
-          </div>
+          <button
+            onClick={handleSaveTranslation}
+            disabled={!translatedText.trim()}
+            className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 transition-colors text-sm w-full sm:w-auto"
+          >
+            <Save className="w-4 h-4" />
+            Save Translation
+          </button>
         </div>
 
         <input
@@ -269,9 +266,9 @@ const TranslatePage: React.FC = () => {
         />
       </div>
 
-      <div className="bg-white border-b border-gray-200 p-4 flex-shrink-0">
-        <div className="flex items-center justify-center gap-4">
-          <div className="flex-1 max-w-xs">
+      <div className="bg-white border-b border-gray-200 p-3 sm:p-4 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+          <div className="w-full sm:flex-1 sm:max-w-xs">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               From
             </label>
@@ -291,13 +288,13 @@ const TranslatePage: React.FC = () => {
           <button
             onClick={handleSwapLanguages}
             disabled={sourceLang === "auto"}
-            className="mt-6 p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed order-last sm:order-none sm:mt-6"
             title="Swap languages"
           >
             <ArrowRightLeft className="w-5 h-5 text-gray-600" />
           </button>
 
-          <div className="flex-1 max-w-xs">
+          <div className="w-full sm:flex-1 sm:max-w-xs">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               To
             </label>
@@ -318,15 +315,15 @@ const TranslatePage: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        <div className="flex-1 flex flex-col border-r border-gray-200 bg-white">
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 bg-white border-b sm:border-b-0 sm:border-r border-gray-200">
+          <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-700">
                 {getLanguageFlag(sourceLang)} {getLanguageName(sourceLang)}
               </span>
               <span className="text-xs text-gray-500">
-                {sourceText.length} characters
+                {sourceText.length} chars
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -352,11 +349,10 @@ const TranslatePage: React.FC = () => {
             value={sourceText}
             onChange={(e) => setSourceText(e.target.value)}
             placeholder="Enter text to translate..."
-            className="flex-1 p-4 resize-none border-none outline-none text-gray-800 leading-relaxed"
-            style={{ minHeight: "200px" }}
+            className="w-full h-32 sm:h-48 p-3 sm:p-4 resize-none border-none outline-none text-gray-800 leading-relaxed"
           />
 
-          <div className="p-4 border-t border-gray-200">
+          <div className="p-3 sm:p-4 border-t border-gray-200">
             <button
               onClick={handleTranslate}
               disabled={!sourceText.trim() || loading}
@@ -374,40 +370,36 @@ const TranslatePage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col bg-gray-50">
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
+        <div className="flex-1 bg-gray-50">
+          <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 bg-white">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-700">
                 {getLanguageFlag(targetLang)} {getLanguageName(targetLang)}
               </span>
               <span className="text-xs text-gray-500">
-                {translatedText.length} characters
+                {translatedText.length} chars
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleCopy(translatedText, "Translation")}
-                disabled={!translatedText.trim()}
-                className="p-1.5 hover:bg-gray-100 rounded text-gray-600 disabled:opacity-50"
-                title="Copy translation"
-              >
-                <Copy className="w-4 h-4" />
-              </button>
-            </div>
+            <button
+              onClick={() => handleCopy(translatedText, "Translation")}
+              disabled={!translatedText.trim()}
+              className="p-1.5 hover:bg-gray-100 rounded text-gray-600 disabled:opacity-50"
+              title="Copy translation"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
           </div>
 
-          <div className="flex-1 p-4 bg-white">
+          <div className="h-32 sm:h-48 p-3 sm:p-4 bg-white overflow-y-auto">
             {translatedText ? (
-              <div className="h-full">
-                <div className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                  {translatedText}
-                </div>
+              <div className="text-gray-800 leading-relaxed whitespace-pre-wrap">
+                {translatedText}
               </div>
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500">
                 <div className="text-center">
-                  <Languages className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>Translation will appear here</p>
+                  <Languages className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-4 text-gray-300" />
+                  <p className="text-sm">Translation will appear here</p>
                 </div>
               </div>
             )}
@@ -416,8 +408,8 @@ const TranslatePage: React.FC = () => {
       </div>
 
       {translationHistory.length > 0 && (
-        <div className="bg-white border-t border-gray-200 max-h-48 overflow-y-auto flex-shrink-0">
-          <div className="p-4 border-b border-gray-100">
+        <div className="bg-white border-t border-gray-200 max-h-32 sm:max-h-48 overflow-y-auto flex-shrink-0">
+          <div className="p-3 sm:p-4 border-b border-gray-100">
             <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
               <FileText className="w-4 h-4" />
               Recent Translations

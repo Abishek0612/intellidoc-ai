@@ -11,9 +11,33 @@
 body {
   font-family: "Avenir Next", system-ui, -apple-system, sans-serif;
   background-color: #f9fafb;
+  overflow-x: hidden;
 }
 
 #root {
   height: 100vh;
   overflow: hidden;
+}
+
+@media (max-width: 1023px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  #root {
+    overflow-x: hidden;
+  }
+
+  .app-layout .mobile-header {
+    position: relative;
+    z-index: 30;
+  }
+
+  .app-layout #sidebar {
+    z-index: 50;
+  }
+
+  .app-layout .sidebar-overlay {
+    z-index: 40;
+  }
 }

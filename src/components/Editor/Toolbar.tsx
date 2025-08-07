@@ -493,10 +493,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
   return (
     <>
-      <div
-        className="bg-white border-b border-gray-200 flex-shrink-0 relative"
-        style={{ zIndex: 1000 }}
-      >
+      <div className="bg-white border-b border-gray-200 flex-shrink-0 relative z-30">
         <div className="p-2 sm:p-3 flex items-center gap-1 overflow-x-auto">
           <div className="flex items-center gap-1 mr-2 flex-shrink-0">
             <button
