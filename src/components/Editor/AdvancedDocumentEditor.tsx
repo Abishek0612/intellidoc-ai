@@ -14,7 +14,6 @@ import TextStyle from "@tiptap/extension-text-style";
 import FontFamily from "@tiptap/extension-font-family";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { useApp } from "../../context/AppContext";
 import { usePagination } from "../../hooks/usePagination";
 import { PageBreak } from "../../extensions/PageBreakExtension";
@@ -41,13 +40,9 @@ declare module "@tiptap/core" {
 
 const FontSize = Extension.create({
   name: "fontSize",
-
   addOptions() {
-    return {
-      types: ["textStyle"],
-    };
+    return { types: ["textStyle"] };
   },
-
   addGlobalAttributes() {
     return [
       {
@@ -55,35 +50,27 @@ const FontSize = Extension.create({
         attributes: {
           fontSize: {
             default: null,
-            parseHTML: (element: HTMLElement) => {
-              return element.style.fontSize?.replace(/['"]+/g, "") || null;
-            },
-            renderHTML: (attributes: { fontSize?: string }) => {
-              if (!attributes.fontSize) {
-                return {};
-              }
-              return {
-                style: `font-size: ${attributes.fontSize} !important`,
-              };
-            },
+            parseHTML: (el: HTMLElement) =>
+              el.style.fontSize?.replace(/['"]+/g, "") || null,
+            renderHTML: (attrs: { fontSize?: string }) =>
+              attrs.fontSize
+                ? { style: `font-size:${attrs.fontSize} !important` }
+                : {},
           },
         },
       },
     ];
   },
-
   addCommands() {
     return {
       setFontSize:
         (fontSize: string) =>
-        ({ chain }) => {
-          return chain().setMark("textStyle", { fontSize }).run();
-        },
+        ({ chain }) =>
+          chain().setMark("textStyle", { fontSize }).run(),
       unsetFontSize:
         () =>
-        ({ chain }) => {
-          return chain().setMark("textStyle", { fontSize: null }).run();
-        },
+        ({ chain }) =>
+          chain().setMark("textStyle", { fontSize: null }).run(),
     };
   },
 });
@@ -94,7 +81,6 @@ const Watermark: React.FC<{
   visible?: boolean;
 }> = ({ text = "LEGAL DRAFT", opacity = 0.08, visible = false }) => {
   if (!visible) return null;
-
   return (
     <div
       className="document-watermark"
@@ -102,14 +88,14 @@ const Watermark: React.FC<{
         position: "absolute",
         top: "50%",
         left: "50%",
-        transform: "translate(-50%, -50%) rotate(-45deg)",
+        transform: "translate(-50%,-50%) rotate(-45deg)",
         fontSize: "48px",
         fontWeight: "300",
-        color: "#999999",
-        opacity: opacity,
+        color: "#999",
+        opacity,
         pointerEvents: "none",
         userSelect: "none",
-        zIndex: 2,
+        zIndex: 0,
         fontFamily: "Arial, sans-serif",
         whiteSpace: "nowrap",
         letterSpacing: "6px",
@@ -120,138 +106,17 @@ const Watermark: React.FC<{
   );
 };
 
-const Ruler: React.FC<{
-  width: number;
-  height: number;
-  marginLeft: number;
-  marginRight: number;
-  marginTop: number;
-  marginBottom: number;
-  visible?: boolean;
-}> = ({
-  width,
-  height,
-  marginLeft,
-  marginRight,
-  marginTop,
-  marginBottom,
-  visible = true,
-}) => {
-  if (!visible) return null;
-
-  const generateMarks = (length: number, vertical = false) => {
-    const marks = [];
-    const increment = 20;
-
-    for (let i = 0; i <= length; i += increment) {
-      const isMajor = i % 100 === 0;
-      marks.push(
-        <div
-          key={i}
-          className={`absolute bg-gray-400 ${
-            vertical ? "ruler-vertical" : "ruler-horizontal"
-          }`}
-          style={{
-            [vertical ? "top" : "left"]: `${i}px`,
-            [vertical ? "height" : "width"]: isMajor ? "15px" : "8px",
-            [vertical ? "width" : "height"]: "1px",
-          }}
-        />
-      );
-
-      if (isMajor && i > 0) {
-        marks.push(
-          <div
-            key={`label-${i}`}
-            className="absolute text-xs text-gray-600"
-            style={{
-              [vertical ? "top" : "left"]: `${i - 10}px`,
-              [vertical ? "left" : "top"]: vertical ? "2px" : "16px",
-              fontSize: "10px",
-            }}
-          >
-            {Math.round(i / 3.78)}
-          </div>
-        );
-      }
-    }
-    return marks;
-  };
-
-  return (
-    <div className="ruler-container">
-      <div
-        className="absolute top-0 left-0 bg-gray-100 border-b border-gray-300 ruler-horizontal"
-        style={{ width: `${width}px`, height: "25px", zIndex: 10 }}
-      >
-        {generateMarks(width)}
-        <div
-          className="absolute top-0 bg-blue-400 opacity-70"
-          style={{
-            left: `${marginLeft}px`,
-            width: "2px",
-            height: "25px",
-          }}
-        />
-        <div
-          className="absolute top-0 bg-blue-400 opacity-70"
-          style={{
-            left: `${width - marginRight}px`,
-            width: "2px",
-            height: "25px",
-          }}
-        />
-      </div>
-
-      <div
-        className="absolute top-0 left-0 bg-gray-100 border-r border-gray-300 ruler-vertical"
-        style={{ width: "25px", height: `${height}px`, zIndex: 10 }}
-      >
-        {generateMarks(height, true)}
-        <div
-          className="absolute left-0 bg-blue-400 opacity-70"
-          style={{
-            top: `${marginTop}px`,
-            width: "25px",
-            height: "2px",
-          }}
-        />
-        <div
-          className="absolute left-0 bg-blue-400 opacity-70"
-          style={{
-            top: `${height - marginBottom}px`,
-            width: "25px",
-            height: "2px",
-          }}
-        />
-      </div>
-
-      <div
-        className="absolute border border-dashed border-blue-400 opacity-30 pointer-events-none margin-guide"
-        style={{
-          left: `${marginLeft + 25}px`,
-          top: `${marginTop + 25}px`,
-          width: `${width - marginLeft - marginRight - 25}px`,
-          height: `${height - marginTop - marginBottom - 25}px`,
-          zIndex: 5,
-        }}
-      />
-    </div>
-  );
-};
-
 const LiveStats: React.FC<{
   words: number;
   characters: number;
   currentPage: number;
   totalPages: number;
 }> = ({ words, characters, currentPage, totalPages }) => {
-  const [updateTime, setUpdateTime] = useState(new Date());
-
-  useEffect(() => {
-    setUpdateTime(new Date());
-  }, [words, characters, currentPage, totalPages]);
-
+  const [t, setT] = useState(new Date());
+  useEffect(
+    () => setT(new Date()),
+    [words, characters, currentPage, totalPages]
+  );
   return (
     <div className="flex items-center gap-2 lg:gap-4 text-xs lg:text-sm text-gray-600">
       <div className="flex items-center gap-1">
@@ -269,11 +134,17 @@ const LiveStats: React.FC<{
         <span>of {totalPages}</span>
       </div>
       <div className="hidden lg:flex items-center gap-1 text-xs text-gray-500">
-        <span>Updated {updateTime.toLocaleTimeString()}</span>
+        <span>Updated {t.toLocaleTimeString()}</span>
       </div>
     </div>
   );
 };
+
+const PAGE_WIDTH = 794;
+const PAGE_HEIGHT = 1123;
+const HEADER_H = 40;
+const FOOTER_H = 36;
+const PAGE_GAP = 24;
 
 const AdvancedDocumentEditor: React.FC = () => {
   const { state, dispatch } = useApp();
@@ -286,41 +157,25 @@ const AdvancedDocumentEditor: React.FC = () => {
 
   const extensions = useMemo(
     () => [
-      StarterKit.configure({
-        heading: {
-          levels: [1, 2, 3, 4, 5, 6],
-        },
-      }),
+      StarterKit.configure({ heading: { levels: [1, 2, 3, 4, 5, 6] } }),
       TextStyle,
       FontSize,
-      FontFamily.configure({
-        types: ["textStyle"],
-      }),
-      Color.configure({
-        types: ["textStyle"],
-      }),
+      FontFamily.configure({ types: ["textStyle"] }),
+      Color.configure({ types: ["textStyle"] }),
       Underline,
-      Link.configure({
-        openOnClick: false,
-      }),
+      Link.configure({ openOnClick: false }),
       Image,
-      Table.configure({
-        resizable: true,
-      }),
+      Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
       TableCell,
-      TextAlign.configure({
-        types: ["heading", "paragraph"],
-      }),
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
       PageBreak,
       Placeholder.configure({
-        placeholder: ({ node }: { node: any }) => {
-          if (node.type.name === "heading") {
-            return "Enter heading...";
-          }
-          return "Start writing your document...";
-        },
+        placeholder: ({ node }: { node: any }) =>
+          node.type.name === "heading"
+            ? "Enter heading..."
+            : "Start writing your document...",
         considerAnyAsEmpty: true,
         emptyEditorClass: "is-editor-empty",
       }),
@@ -331,11 +186,7 @@ const AdvancedDocumentEditor: React.FC = () => {
   const editor = useEditor({
     extensions,
     content: "",
-    editorProps: {
-      attributes: {
-        class: "ProseMirror",
-      },
-    },
+    editorProps: { attributes: { class: "ProseMirror" } },
     onUpdate: useCallback(() => {
       if (currentDocument && editor) {
         const content = editor.getHTML();
@@ -343,7 +194,7 @@ const AdvancedDocumentEditor: React.FC = () => {
           prev
             ? {
                 ...prev,
-                content: content,
+                content,
                 lastModified: new Date().toISOString(),
                 wordCount: getWordCount(content),
                 characterCount: getCharacterCount(content),
@@ -392,7 +243,6 @@ const AdvancedDocumentEditor: React.FC = () => {
       characterCount: 0,
       preview: "",
     };
-
     setCurrentDocument(newDoc);
     setTitle(newDoc.title);
     if (editor) {
@@ -404,12 +254,11 @@ const AdvancedDocumentEditor: React.FC = () => {
 
   const saveDocument = useCallback(() => {
     if (!currentDocument || !editor) return;
-
     const content = editor.getHTML();
     const updatedDoc: Document = {
       ...currentDocument,
       title: title || "Untitled Document",
-      content: content,
+      content,
       lastModified: new Date().toISOString(),
       wordCount: getWordCount(content),
       characterCount: getCharacterCount(content),
@@ -418,16 +267,9 @@ const AdvancedDocumentEditor: React.FC = () => {
 
     const saved = localStorage.getItem("editorDocuments");
     let documents: Document[] = saved ? JSON.parse(saved) : [];
-
-    const existingIndex = documents.findIndex(
-      (doc) => doc.id === updatedDoc.id
-    );
-    if (existingIndex !== -1) {
-      documents[existingIndex] = updatedDoc;
-    } else {
-      documents.push(updatedDoc);
-    }
-
+    const idx = documents.findIndex((d) => d.id === updatedDoc.id);
+    if (idx !== -1) documents[idx] = updatedDoc;
+    else documents.push(updatedDoc);
     localStorage.setItem("editorDocuments", JSON.stringify(documents));
     setCurrentDocument(updatedDoc);
     setLastSaved(updatedDoc.lastModified);
@@ -437,9 +279,7 @@ const AdvancedDocumentEditor: React.FC = () => {
       type: "legal-document",
       savedAt: updatedDoc.lastModified,
     };
-
     dispatch({ type: "SAVE_DOCUMENT", payload: savedDocument });
-
     dispatch({
       type: "ADD_ACTIVITY",
       payload: {
@@ -464,14 +304,6 @@ const AdvancedDocumentEditor: React.FC = () => {
     [loadDocument]
   );
 
-  const getStats = useCallback(() => {
-    if (!currentDocument) return { words: 0, characters: 0 };
-    return {
-      words: currentDocument.wordCount || 0,
-      characters: currentDocument.characterCount || 0,
-    };
-  }, [currentDocument]);
-
   useEffect(() => {
     if (
       state.pageContent &&
@@ -483,20 +315,23 @@ const AdvancedDocumentEditor: React.FC = () => {
     } else {
       const saved = localStorage.getItem("editorDocuments");
       if (saved) {
-        const documents: Document[] = JSON.parse(saved);
-        if (documents.length > 0) {
-          const lastDoc = documents[documents.length - 1];
-          loadDocument(lastDoc);
-        } else {
-          createNewDocument();
-        }
+        const docs: Document[] = JSON.parse(saved);
+        if (docs.length > 0) loadDocument(docs[docs.length - 1]);
+        else createNewDocument();
       } else {
         createNewDocument();
       }
     }
   }, [state.pageContent, dispatch, loadDocument, createNewDocument]);
 
-  const stats = getStats();
+  const stats = {
+    words: currentDocument?.wordCount || 0,
+    characters: currentDocument?.characterCount || 0,
+  };
+
+  const visualHeight =
+    PAGE_HEIGHT * Math.max(1, totalPages) +
+    PAGE_GAP * Math.max(0, totalPages - 1);
 
   return (
     <div className="flex-1 flex h-full bg-gray-50 overflow-hidden">
@@ -608,41 +443,23 @@ const AdvancedDocumentEditor: React.FC = () => {
           className="editor-scroll-container flex-1 overflow-y-auto"
         >
           <div className="editor-workspace">
-            {showRulers && (
-              <Ruler
-                width={794}
-                height={Math.max(1123, 1123 * totalPages)}
-                marginLeft={76}
-                marginRight={76}
-                marginTop={76}
-                marginBottom={76}
-                visible={showRulers}
-              />
-            )}
-
-            <div
-              className="page-container"
-              style={{
-                marginLeft: showRulers ? "25px" : "0",
-                marginTop: showRulers ? "25px" : "0",
-              }}
-            >
-              <div className="page-stack">
+            <div className="page-container">
+              <div className="page-stack" style={{ width: PAGE_WIDTH }}>
+                {/* Background pages */}
                 {Array.from({ length: Math.max(1, totalPages) }).map((_, i) => (
-                  <div key={i} className="page-visual-bg">
-                    <Watermark
-                      text="LEGAL DRAFT"
-                      opacity={0.08}
-                      visible={showWatermark}
-                    />
+                  <div
+                    key={i}
+                    className="page-visual-bg"
+                    style={{ width: PAGE_WIDTH, height: PAGE_HEIGHT }}
+                  >
+                    <Watermark visible={showWatermark} />
+                    {/* header/footer are visual and sit above text to mask it from appearing in these bands */}
                     <div className="page-header">
                       <div className="flex justify-between items-center px-4 py-2 text-xs text-gray-500 border-b border-gray-200">
                         <span className="font-medium truncate">
                           {title || "Untitled Document"}
                         </span>
-                        <span>
-                          Page {i + 1} of {Math.max(1, totalPages)}
-                        </span>
+                        <span>Page {i + 1}</span>
                       </div>
                     </div>
                     <div className="page-footer">
@@ -654,9 +471,27 @@ const AdvancedDocumentEditor: React.FC = () => {
                   </div>
                 ))}
 
-                <div className="editor-overlay">
+                {/* The actual editor layer */}
+                <div
+                  className="editor-overlay"
+                  style={{ width: PAGE_WIDTH, height: visualHeight }}
+                >
                   <EditorContent editor={editor} />
                 </div>
+
+                {Array.from({ length: Math.max(0, totalPages - 1) }).map(
+                  (_, i) => (
+                    <div
+                      key={`gap-${i}`}
+                      className="page-gap-mask"
+                      style={{
+                        top: (i + 1) * PAGE_HEIGHT + i * PAGE_GAP,
+                        width: PAGE_WIDTH,
+                        height: PAGE_GAP,
+                      }}
+                    />
+                  )
+                )}
               </div>
             </div>
           </div>
