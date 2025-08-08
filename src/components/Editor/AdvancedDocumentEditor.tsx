@@ -13,7 +13,8 @@ import Color from "@tiptap/extension-color";
 import TextStyle from "@tiptap/extension-text-style";
 import FontFamily from "@tiptap/extension-font-family";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Extension, RawCommands } from "@tiptap/core";
+import { Extension } from "@tiptap/core";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { useApp } from "../../context/AppContext";
 import { usePagination } from "../../hooks/usePagination";
 import { PageBreak } from "../../extensions/PageBreakExtension";
@@ -87,12 +88,201 @@ const FontSize = Extension.create({
   },
 });
 
+const Watermark: React.FC<{
+  text?: string;
+  opacity?: number;
+  visible?: boolean;
+}> = ({ text = "LEGAL DRAFT", opacity = 0.08, visible = false }) => {
+  if (!visible) return null;
+
+  return (
+    <div
+      className="document-watermark"
+      style={{
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%) rotate(-45deg)",
+        fontSize: "48px",
+        fontWeight: "300",
+        color: "#999999",
+        opacity: opacity,
+        pointerEvents: "none",
+        userSelect: "none",
+        zIndex: 2,
+        fontFamily: "Arial, sans-serif",
+        whiteSpace: "nowrap",
+        letterSpacing: "6px",
+      }}
+    >
+      {text}
+    </div>
+  );
+};
+
+const Ruler: React.FC<{
+  width: number;
+  height: number;
+  marginLeft: number;
+  marginRight: number;
+  marginTop: number;
+  marginBottom: number;
+  visible?: boolean;
+}> = ({
+  width,
+  height,
+  marginLeft,
+  marginRight,
+  marginTop,
+  marginBottom,
+  visible = true,
+}) => {
+  if (!visible) return null;
+
+  const generateMarks = (length: number, vertical = false) => {
+    const marks = [];
+    const increment = 20;
+
+    for (let i = 0; i <= length; i += increment) {
+      const isMajor = i % 100 === 0;
+      marks.push(
+        <div
+          key={i}
+          className={`absolute bg-gray-400 ${
+            vertical ? "ruler-vertical" : "ruler-horizontal"
+          }`}
+          style={{
+            [vertical ? "top" : "left"]: `${i}px`,
+            [vertical ? "height" : "width"]: isMajor ? "15px" : "8px",
+            [vertical ? "width" : "height"]: "1px",
+          }}
+        />
+      );
+
+      if (isMajor && i > 0) {
+        marks.push(
+          <div
+            key={`label-${i}`}
+            className="absolute text-xs text-gray-600"
+            style={{
+              [vertical ? "top" : "left"]: `${i - 10}px`,
+              [vertical ? "left" : "top"]: vertical ? "2px" : "16px",
+              fontSize: "10px",
+            }}
+          >
+            {Math.round(i / 3.78)}
+          </div>
+        );
+      }
+    }
+    return marks;
+  };
+
+  return (
+    <div className="ruler-container">
+      <div
+        className="absolute top-0 left-0 bg-gray-100 border-b border-gray-300 ruler-horizontal"
+        style={{ width: `${width}px`, height: "25px", zIndex: 10 }}
+      >
+        {generateMarks(width)}
+        <div
+          className="absolute top-0 bg-blue-400 opacity-70"
+          style={{
+            left: `${marginLeft}px`,
+            width: "2px",
+            height: "25px",
+          }}
+        />
+        <div
+          className="absolute top-0 bg-blue-400 opacity-70"
+          style={{
+            left: `${width - marginRight}px`,
+            width: "2px",
+            height: "25px",
+          }}
+        />
+      </div>
+
+      <div
+        className="absolute top-0 left-0 bg-gray-100 border-r border-gray-300 ruler-vertical"
+        style={{ width: "25px", height: `${height}px`, zIndex: 10 }}
+      >
+        {generateMarks(height, true)}
+        <div
+          className="absolute left-0 bg-blue-400 opacity-70"
+          style={{
+            top: `${marginTop}px`,
+            width: "25px",
+            height: "2px",
+          }}
+        />
+        <div
+          className="absolute left-0 bg-blue-400 opacity-70"
+          style={{
+            top: `${height - marginBottom}px`,
+            width: "25px",
+            height: "2px",
+          }}
+        />
+      </div>
+
+      <div
+        className="absolute border border-dashed border-blue-400 opacity-30 pointer-events-none margin-guide"
+        style={{
+          left: `${marginLeft + 25}px`,
+          top: `${marginTop + 25}px`,
+          width: `${width - marginLeft - marginRight - 25}px`,
+          height: `${height - marginTop - marginBottom - 25}px`,
+          zIndex: 5,
+        }}
+      />
+    </div>
+  );
+};
+
+const LiveStats: React.FC<{
+  words: number;
+  characters: number;
+  currentPage: number;
+  totalPages: number;
+}> = ({ words, characters, currentPage, totalPages }) => {
+  const [updateTime, setUpdateTime] = useState(new Date());
+
+  useEffect(() => {
+    setUpdateTime(new Date());
+  }, [words, characters, currentPage, totalPages]);
+
+  return (
+    <div className="flex items-center gap-2 lg:gap-4 text-xs lg:text-sm text-gray-600">
+      <div className="flex items-center gap-1">
+        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+        <span className="font-medium">{words}</span>
+        <span className="hidden sm:inline">words</span>
+        <span className="sm:hidden">w</span>
+      </div>
+      <div className="hidden sm:flex items-center gap-1">
+        <span className="font-medium">{characters}</span>
+        <span>characters</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="font-medium">Page {currentPage}</span>
+        <span>of {totalPages}</span>
+      </div>
+      <div className="hidden lg:flex items-center gap-1 text-xs text-gray-500">
+        <span>Updated {updateTime.toLocaleTimeString()}</span>
+      </div>
+    </div>
+  );
+};
+
 const AdvancedDocumentEditor: React.FC = () => {
   const { state, dispatch } = useApp();
   const [currentDocument, setCurrentDocument] = useState<Document | null>(null);
   const [showDocumentSelector, setShowDocumentSelector] = useState(false);
   const [title, setTitle] = useState("");
   const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [showWatermark, setShowWatermark] = useState(false);
+  const [showRulers, setShowRulers] = useState(false);
 
   const extensions = useMemo(
     () => [
@@ -345,18 +535,57 @@ const AdvancedDocumentEditor: React.FC = () => {
 
           <div className="flex items-center justify-between text-xs sm:text-sm text-gray-600 mt-2 lg:mt-0">
             <div className="flex items-center gap-2 sm:gap-4">
-              <span>{stats.words} words</span>
-              <span className="hidden sm:inline">
-                {stats.characters} characters
-              </span>
-              <span>
-                Page {currentPage} of {totalPages}
-              </span>
+              <LiveStats
+                words={stats.words}
+                characters={stats.characters}
+                currentPage={currentPage}
+                totalPages={totalPages}
+              />
               <button
                 onClick={() => editor?.chain().focus().insertPageBreak().run()}
-                className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition-colors"
               >
                 Page Break
+              </button>
+              <button
+                onClick={() => {
+                  setShowWatermark(!showWatermark);
+                  toast.info(
+                    !showWatermark ? "Watermark enabled" : "Watermark disabled",
+                    {
+                      position:
+                        window.innerWidth < 768 ? "top-center" : "top-right",
+                      autoClose: 2000,
+                    }
+                  );
+                }}
+                className={`px-2 py-1 rounded text-xs transition-colors ${
+                  showWatermark
+                    ? "bg-green-500 text-white hover:bg-green-600"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                Watermark
+              </button>
+              <button
+                onClick={() => {
+                  setShowRulers(!showRulers);
+                  toast.info(
+                    !showRulers ? "Rulers enabled" : "Rulers disabled",
+                    {
+                      position:
+                        window.innerWidth < 768 ? "top-center" : "top-right",
+                      autoClose: 2000,
+                    }
+                  );
+                }}
+                className={`px-2 py-1 rounded text-xs transition-colors ${
+                  showRulers
+                    ? "bg-blue-500 text-white hover:bg-blue-600"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                Rulers
               </button>
             </div>
             {lastSaved && (
@@ -378,12 +607,57 @@ const AdvancedDocumentEditor: React.FC = () => {
           ref={scrollContainerRef}
           className="editor-scroll-container flex-1 overflow-y-auto"
         >
-          <div className="page-stack">
-            {Array.from({ length: totalPages }).map((_, i) => (
-              <div key={i} className="page-visual-bg" />
-            ))}
-            <div className="editor-overlay">
-              <EditorContent editor={editor} />
+          <div className="editor-workspace">
+            {showRulers && (
+              <Ruler
+                width={794}
+                height={Math.max(1123, 1123 * totalPages)}
+                marginLeft={76}
+                marginRight={76}
+                marginTop={76}
+                marginBottom={76}
+                visible={showRulers}
+              />
+            )}
+
+            <div
+              className="page-container"
+              style={{
+                marginLeft: showRulers ? "25px" : "0",
+                marginTop: showRulers ? "25px" : "0",
+              }}
+            >
+              <div className="page-stack">
+                {Array.from({ length: Math.max(1, totalPages) }).map((_, i) => (
+                  <div key={i} className="page-visual-bg">
+                    <Watermark
+                      text="LEGAL DRAFT"
+                      opacity={0.08}
+                      visible={showWatermark}
+                    />
+                    <div className="page-header">
+                      <div className="flex justify-between items-center px-4 py-2 text-xs text-gray-500 border-b border-gray-200">
+                        <span className="font-medium truncate">
+                          {title || "Untitled Document"}
+                        </span>
+                        <span>
+                          Page {i + 1} of {Math.max(1, totalPages)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="page-footer">
+                      <div className="absolute bottom-0 left-0 right-0 flex justify-between items-center px-4 py-2 text-xs text-gray-500 border-t border-gray-200">
+                        <span>{new Date().toLocaleDateString()}</span>
+                        <span>Page {i + 1}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="editor-overlay">
+                  <EditorContent editor={editor} />
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -5,33 +5,82 @@
 .editor-scroll-container {
   background-color: #e9ecef;
   padding: 0;
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.editor-workspace {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 2rem 1rem;
+}
+
+.page-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 
 .page-stack {
   position: relative;
   margin: 0 auto;
-  padding: 2rem 0;
+  padding: 0;
   width: 794px;
+  max-width: 794px;
 }
 
 .page-visual-bg {
-  width: 100%;
+  width: 794px;
   height: 1123px;
   background: white;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   border: 1px solid #dee2e6;
+  position: relative;
+  margin: 0 auto 2rem auto;
+  overflow: hidden;
 }
 
-.page-visual-bg + .page-visual-bg {
-  margin-top: 2rem;
+.page-visual-bg:last-child {
+  margin-bottom: 0;
+}
+
+.page-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: white;
+  z-index: 4;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.page-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 36px;
+  background: white;
+  z-index: 4;
+  border-top: 1px solid #e5e7eb;
 }
 
 .editor-overlay {
   position: absolute;
-  top: 2rem;
+  top: 0;
   left: 0;
-  width: 100%;
-  height: calc(100% - 4rem);
+  width: 794px;
+  height: auto;
+  min-height: 1123px;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .ProseMirror {
@@ -40,14 +89,38 @@
   font-size: 14px;
   line-height: 1.6;
   color: #374151;
+  width: 794px;
+  max-width: 794px;
+  min-width: 794px;
+  min-height: 1123px;
+  padding: 116px 76px 112px 76px;
+  margin: 0;
+  pointer-events: auto;
+  position: relative;
+  z-index: 3;
+  box-sizing: border-box;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  height: 100% !important;
-  padding: 76px;
+  hyphens: auto;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.ProseMirror * {
+  max-width: 642px !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  box-sizing: border-box !important;
 }
 
 .ProseMirror p {
   margin: 0 0 16px 0;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  hyphens: auto;
+  max-width: 642px !important;
 }
 
 .ProseMirror h1,
@@ -55,35 +128,74 @@
 .ProseMirror h3 {
   font-weight: bold;
   margin: 24px 0 16px 0;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  max-width: 642px !important;
+}
+
+.ProseMirror h1 {
+  font-size: 24px;
+}
+
+.ProseMirror h2 {
+  font-size: 20px;
+}
+
+.ProseMirror h3 {
+  font-size: 18px;
+}
+
+.ProseMirror h4,
+.ProseMirror h5,
+.ProseMirror h6 {
+  font-weight: bold;
+  margin: 16px 0 12px 0;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  max-width: 642px !important;
 }
 
 .ProseMirror ol,
 .ProseMirror ul {
   margin: 16px 0;
   padding-left: 24px;
+  max-width: 642px !important;
 }
 
 .ProseMirror li {
   margin: 4px 0;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
 }
 
 .ProseMirror strong {
   font-weight: 600;
 }
+
 .ProseMirror em {
   font-style: italic;
 }
+
 .ProseMirror u {
   text-decoration: underline;
 }
+
 .ProseMirror s {
   text-decoration: line-through;
 }
+
 .ProseMirror code {
   background: #f3f4f6;
   padding: 2px 4px;
   border-radius: 3px;
   font-family: "Monaco", "Consolas", monospace;
+  font-size: 13px;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-all !important;
 }
 
 .ProseMirror blockquote {
@@ -92,12 +204,20 @@
   padding-left: 16px;
   font-style: italic;
   color: #6b7280;
+  background: #f8f9fa;
+  border-radius: 4px;
+  position: relative;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  max-width: 622px !important;
 }
 
 .ProseMirror table {
   border-collapse: collapse;
   table-layout: fixed;
-  width: 100%;
+  width: 100% !important;
+  max-width: 642px !important;
   margin: 16px 0;
   overflow: hidden;
 }
@@ -110,6 +230,9 @@
   padding: 8px;
   position: relative;
   vertical-align: top;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
 }
 
 .ProseMirror table th {
@@ -118,7 +241,7 @@
 }
 
 .ProseMirror img {
-  max-width: 100%;
+  max-width: 100% !important;
   height: auto;
   margin: 16px 0;
 }
@@ -126,6 +249,13 @@
 .ProseMirror a {
   color: #3b82f6;
   text-decoration: underline;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-all !important;
+}
+
+.ProseMirror a:hover {
+  color: #1d4ed8;
 }
 
 .page-break {
@@ -133,7 +263,13 @@
   border-top: 2px dashed #ced4da;
   margin: 2rem 0;
   position: relative;
+  page-break-before: always;
+  break-before: page;
+  clear: both;
+  width: 100% !important;
+  max-width: 642px !important;
 }
+
 .page-break::before {
   content: "Manual Page Break";
   position: absolute;
@@ -144,31 +280,316 @@
   color: #adb5bd;
   font-size: 0.75rem;
   padding: 0 0.5em;
+  font-family: Arial, sans-serif;
+  z-index: 2;
+}
+
+.document-watermark {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) rotate(-45deg) !important;
+  font-size: 48px !important;
+  font-weight: 300 !important;
+  color: #999999 !important;
+  opacity: 0.08 !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  z-index: 2 !important;
+  font-family: Arial, sans-serif !important;
+  white-space: nowrap !important;
+  letter-spacing: 6px !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+.ruler-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+}
+
+.ruler-horizontal {
+  border-bottom: 1px solid #9ca3af;
+}
+
+.ruler-vertical {
+  border-right: 1px solid #9ca3af;
+}
+
+.ruler-mark {
+  position: absolute;
+  background-color: #6b7280;
+}
+
+.margin-guide {
+  border: 1px dashed #3b82f6;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+@keyframes pulse-green {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse-green 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.page-header .flex,
+.page-footer .flex {
+  height: 100%;
+  align-items: center;
+}
+
+.ProseMirror:focus {
+  outline: none;
+}
+
+.ProseMirror-focused {
+  outline: none;
+}
+
+.ProseMirror-selectednode {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.ProseMirror .selectedCell {
+  background: rgba(59, 130, 246, 0.1);
+  outline: 2px solid #3b82f6;
+}
+
+.ProseMirror .column-resize-handle {
+  background-color: #3b82f6;
+  width: 4px;
+}
+
+.ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.ProseMirror pre {
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: "Monaco", "Consolas", "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 16px 0;
+  max-width: 622px !important;
+}
+
+.ProseMirror pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
 }
 
 @media print {
   .editor-scroll-container,
   .page-stack {
-    background: transparent;
-    padding: 0;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
+
   .page-visual-bg {
-    display: none;
+    box-shadow: none !important;
+    border: none !important;
+    page-break-after: always;
+    margin-bottom: 0 !important;
   }
+
+  .page-visual-bg:last-child {
+    page-break-after: auto;
+  }
+
   .editor-overlay {
-    position: static;
-    height: auto;
+    position: static !important;
+    height: auto !important;
+    margin: 0 !important;
   }
+
   .ProseMirror {
     height: auto !important;
+    max-height: none !important;
+    padding: 20mm !important;
+    font-size: 12pt !important;
+    line-height: 1.5 !important;
+    overflow: visible !important;
   }
+
+  .document-watermark {
+    opacity: 0.05 !important;
+  }
+
+  .ruler-container,
+  .ruler-horizontal,
+  .ruler-vertical,
+  .margin-guide {
+    display: none !important;
+  }
+
+  .page-header,
+  .page-footer {
+    position: static !important;
+    height: auto !important;
+    background: transparent !important;
+    border: none !important;
+    font-size: 10pt !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .editor-workspace {
+    padding: 1rem 0.5rem;
+  }
+
+  .page-stack {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .page-visual-bg {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto;
+    min-height: 600px;
+  }
+
+  .editor-overlay {
+    width: 100% !important;
+  }
+
+  .ProseMirror {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 60px 20px;
+    font-size: 16px;
+    overflow: visible !important;
+  }
+
+  .ProseMirror *,
+  .ProseMirror p,
+  .ProseMirror h1,
+  .ProseMirror h2,
+  .ProseMirror h3,
+  .ProseMirror h4,
+  .ProseMirror h5,
+  .ProseMirror h6,
+  .ProseMirror ol,
+  .ProseMirror ul,
+  .ProseMirror blockquote,
+  .ProseMirror table,
   .page-break {
-    margin: 0;
-    border: 0;
-    height: 0;
-    page-break-before: always;
+    max-width: 100% !important;
   }
-  .page-break::before {
-    display: none;
+
+  .document-watermark {
+    font-size: 32px !important;
   }
+
+  .ruler-container {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .editor-workspace {
+    padding: 0.5rem;
+  }
+
+  .ProseMirror {
+    padding: 40px 15px;
+    font-size: 14px;
+  }
+
+  .document-watermark {
+    font-size: 24px !important;
+    opacity: 0.06 !important;
+  }
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
+
+.ProseMirror.is-editor-empty::before {
+  content: attr(data-placeholder);
+  color: #adb5bd;
+  pointer-events: none;
+  position: absolute;
+}
+
+.ProseMirror-focused {
+  box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.ProseMirror a {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.ProseMirror a:visited {
+  color: #7c3aed;
+}
+
+.ProseMirror table {
+  border: 2px solid #e5e7eb;
+  border-radius: 4px;
+}
+
+.ProseMirror table tr:hover {
+  background-color: #f9fafb;
+}
+
+.editor-scroll-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.editor-scroll-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.editor-scroll-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.editor-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+::selection {
+  background-color: rgba(59, 130, 246, 0.2);
+}
+
+.ProseMirror ::selection {
+  background-color: rgba(59, 130, 246, 0.2);
+}
+
+.ProseMirror {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
