@@ -30,6 +30,8 @@ import {
 } from "../../utils/documentUtils";
 import { toast } from "react-toastify";
 import "../../styles/editor.css";
+import { EditableHeader } from "../../extensions/EditableHeaderExtension";
+import { EditableFooter } from "../../extensions/EditableFooterExtension";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -199,8 +201,10 @@ const AdvancedDocumentEditor: React.FC = () => {
         pageHeight: PAGE_HEIGHT - margins.top - margins.bottom,
         contentHeight:
           PAGE_HEIGHT - HEADER_H - FOOTER_H - margins.top - margins.bottom,
-        enabled: false, // Disabled by default
+        enabled: true,
       }),
+      EditableHeader,
+      EditableFooter,
       Placeholder.configure({
         placeholder: ({ node }: { node: any }) =>
           node.type.name === "heading"
@@ -212,7 +216,6 @@ const AdvancedDocumentEditor: React.FC = () => {
     ],
     [margins]
   );
-
   const editor = useEditor({
     extensions,
     content: "",
