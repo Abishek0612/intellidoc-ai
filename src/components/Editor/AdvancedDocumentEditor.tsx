@@ -17,8 +17,10 @@ import { Extension } from "@tiptap/core";
 import { useApp } from "../../context/AppContext";
 import { usePagination } from "../../hooks/usePagination";
 import { PageBreak } from "../../extensions/PageBreakExtension";
+import { AutoPageBreak } from "../../extensions/AutoPageBreakExtension";
 import Toolbar from "./Toolbar";
 import DocumentSelector from "./DocumentSelector";
+import Ruler from "./Ruler";
 import { Document } from "../../types";
 import {
   generateDocumentId,
@@ -79,8 +81,23 @@ const Watermark: React.FC<{
   text?: string;
   opacity?: number;
   visible?: boolean;
-}> = ({ text = "LEGAL DRAFT", opacity = 0.08, visible = false }) => {
-  if (!visible) return null;
+  watermarkData?: {
+    enabled: boolean;
+    text?: string;
+    opacity?: number;
+  };
+}> = ({
+  text = "LEGAL DRAFT",
+  opacity = 0.08,
+  visible = false,
+  watermarkData,
+}) => {
+  const finalText = watermarkData?.text || text;
+  const finalOpacity = watermarkData?.opacity || opacity;
+  const isVisible = visible || (watermarkData?.enabled && visible);
+
+  if (!isVisible) return null;
+
   return (
     <div
       className="document-watermark"
@@ -92,7 +109,7 @@ const Watermark: React.FC<{
         fontSize: "48px",
         fontWeight: "300",
         color: "#999",
-        opacity,
+        opacity: finalOpacity,
         pointerEvents: "none",
         userSelect: "none",
         zIndex: 0,
@@ -101,7 +118,7 @@ const Watermark: React.FC<{
         letterSpacing: "6px",
       }}
     >
-      {text}
+      {finalText}
     </div>
   );
 };
@@ -145,6 +162,7 @@ const PAGE_HEIGHT = 1123;
 const HEADER_H = 40;
 const FOOTER_H = 36;
 const PAGE_GAP = 24;
+const DEFAULT_MARGIN = 76;
 
 const AdvancedDocumentEditor: React.FC = () => {
   const { state, dispatch } = useApp();
@@ -154,6 +172,12 @@ const AdvancedDocumentEditor: React.FC = () => {
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [showWatermark, setShowWatermark] = useState(false);
   const [showRulers, setShowRulers] = useState(false);
+  const [margins, setMargins] = useState({
+    left: DEFAULT_MARGIN,
+    right: DEFAULT_MARGIN,
+    top: DEFAULT_MARGIN,
+    bottom: DEFAULT_MARGIN,
+  });
 
   const extensions = useMemo(
     () => [
@@ -171,6 +195,12 @@ const AdvancedDocumentEditor: React.FC = () => {
       TableCell,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       PageBreak,
+      AutoPageBreak.configure({
+        pageHeight: PAGE_HEIGHT - margins.top - margins.bottom,
+        contentHeight:
+          PAGE_HEIGHT - HEADER_H - FOOTER_H - margins.top - margins.bottom,
+        enabled: false, // Disabled by default
+      }),
       Placeholder.configure({
         placeholder: ({ node }: { node: any }) =>
           node.type.name === "heading"
@@ -180,7 +210,7 @@ const AdvancedDocumentEditor: React.FC = () => {
         emptyEditorClass: "is-editor-empty",
       }),
     ],
-    []
+    [margins]
   );
 
   const editor = useEditor({
@@ -204,10 +234,58 @@ const AdvancedDocumentEditor: React.FC = () => {
         );
       }
     }, [currentDocument]),
-    onCreate: useCallback(({ editor }: { editor: Editor }) => {
-      editor.commands.focus();
-    }, []),
+    onCreate: useCallback(
+      ({ editor }: { editor: Editor }) => {
+        editor.commands.focus();
+
+        setTimeout(() => {
+          const proseMirrorElement = editor.view.dom as HTMLElement;
+
+          if (proseMirrorElement) {
+            proseMirrorElement.style.paddingLeft = `${margins.left}px`;
+            proseMirrorElement.style.paddingRight = `${margins.right}px`;
+            proseMirrorElement.style.paddingTop = `${margins.top + HEADER_H}px`;
+            proseMirrorElement.style.paddingBottom = `${
+              margins.bottom + FOOTER_H
+            }px`;
+          }
+        }, 100);
+      },
+      [margins]
+    ),
   });
+
+  const applyMargins = useCallback(
+    (newMargins: typeof margins) => {
+      if (editor) {
+        const proseMirrorElement = editor.view.dom as HTMLElement;
+
+        if (proseMirrorElement) {
+          proseMirrorElement.style.paddingLeft = `${newMargins.left}px`;
+          proseMirrorElement.style.paddingRight = `${newMargins.right}px`;
+          proseMirrorElement.style.paddingTop = `${
+            newMargins.top + HEADER_H
+          }px`;
+          proseMirrorElement.style.paddingBottom = `${
+            newMargins.bottom + FOOTER_H
+          }px`;
+        }
+      }
+    },
+    [editor]
+  );
+
+  const handleMarginsChange = useCallback(
+    (newMargins: typeof margins) => {
+      setMargins(newMargins);
+      applyMargins(newMargins);
+    },
+    [applyMargins]
+  );
+
+  useEffect(() => {
+    applyMargins(margins);
+  }, [editor, margins, applyMargins]);
 
   const { currentPage, totalPages, scrollContainerRef } = usePagination(editor);
 
@@ -215,6 +293,28 @@ const AdvancedDocumentEditor: React.FC = () => {
     (doc: Document) => {
       setCurrentDocument(doc);
       setTitle(doc.title);
+
+      if (doc.watermark) {
+        setShowWatermark(doc.watermark.enabled);
+      } else {
+        setShowWatermark(false);
+      }
+
+      if (doc.rulers !== undefined) {
+        setShowRulers(doc.rulers);
+      }
+
+      if (doc.margins) {
+        setMargins(doc.margins);
+      } else {
+        setMargins({
+          left: DEFAULT_MARGIN,
+          right: DEFAULT_MARGIN,
+          top: DEFAULT_MARGIN,
+          bottom: DEFAULT_MARGIN,
+        });
+      }
+
       if (editor) {
         if (
           doc.content &&
@@ -231,27 +331,6 @@ const AdvancedDocumentEditor: React.FC = () => {
     [editor]
   );
 
-  const createNewDocument = useCallback(() => {
-    const newDoc: Document = {
-      id: generateDocumentId(),
-      title: "Untitled Document",
-      content: "",
-      type: "document",
-      created: new Date().toISOString(),
-      lastModified: new Date().toISOString(),
-      wordCount: 0,
-      characterCount: 0,
-      preview: "",
-    };
-    setCurrentDocument(newDoc);
-    setTitle(newDoc.title);
-    if (editor) {
-      editor.commands.setContent("");
-      editor.commands.focus();
-    }
-    setLastSaved(null);
-  }, [editor]);
-
   const saveDocument = useCallback(() => {
     if (!currentDocument || !editor) return;
     const content = editor.getHTML();
@@ -263,6 +342,13 @@ const AdvancedDocumentEditor: React.FC = () => {
       wordCount: getWordCount(content),
       characterCount: getCharacterCount(content),
       preview: createDocumentPreview(content),
+      watermark: {
+        enabled: showWatermark,
+        text: "LEGAL DRAFT",
+        opacity: 0.08,
+      },
+      rulers: showRulers,
+      margins: margins,
     };
 
     const saved = localStorage.getItem("editorDocuments");
@@ -290,11 +376,63 @@ const AdvancedDocumentEditor: React.FC = () => {
       },
     });
 
-    toast.success("Document saved successfully!", {
-      position: window.innerWidth < 768 ? "top-center" : "top-right",
-      toastId: "save-success",
+    toast.success(
+      `Document saved with ${showWatermark ? "watermark" : "no watermark"}!`,
+      {
+        position: window.innerWidth < 768 ? "top-center" : "top-right",
+        toastId: "save-success",
+      }
+    );
+  }, [
+    currentDocument,
+    editor,
+    title,
+    dispatch,
+    showWatermark,
+    showRulers,
+    margins,
+  ]);
+
+  const createNewDocument = useCallback(() => {
+    const newDoc: Document = {
+      id: generateDocumentId(),
+      title: "Untitled Document",
+      content: "",
+      type: "document",
+      created: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+      wordCount: 0,
+      characterCount: 0,
+      preview: "",
+      watermark: {
+        enabled: false,
+        text: "LEGAL DRAFT",
+        opacity: 0.08,
+      },
+      rulers: false,
+      margins: {
+        left: DEFAULT_MARGIN,
+        right: DEFAULT_MARGIN,
+        top: DEFAULT_MARGIN,
+        bottom: DEFAULT_MARGIN,
+      },
+    };
+    setCurrentDocument(newDoc);
+    setTitle(newDoc.title);
+    setShowWatermark(false);
+    setShowRulers(false);
+    setMargins({
+      left: DEFAULT_MARGIN,
+      right: DEFAULT_MARGIN,
+      top: DEFAULT_MARGIN,
+      bottom: DEFAULT_MARGIN,
     });
-  }, [currentDocument, editor, title, dispatch]);
+    if (editor) {
+      editor.commands.setContent("");
+      editor.commands.focus();
+    }
+    setLastSaved(null);
+  }, [editor]);
 
   const handleDocumentSelect = useCallback(
     (doc: Document) => {
@@ -400,7 +538,7 @@ const AdvancedDocumentEditor: React.FC = () => {
                     : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                 }`}
               >
-                Watermark
+                Watermark {currentDocument?.watermark?.enabled ? "✓" : ""}
               </button>
               <button
                 onClick={() => {
@@ -420,7 +558,7 @@ const AdvancedDocumentEditor: React.FC = () => {
                     : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                 }`}
               >
-                Rulers
+                Rulers {currentDocument?.rulers ? "✓" : ""}
               </button>
             </div>
             {lastSaved && (
@@ -443,17 +581,40 @@ const AdvancedDocumentEditor: React.FC = () => {
           className="editor-scroll-container flex-1 overflow-y-auto"
         >
           <div className="editor-workspace">
-            <div className="page-container">
+            {showRulers && (
+              <div
+                className="ruler-overlay"
+                style={{ position: "absolute", top: 0, left: 0, zIndex: 20 }}
+              >
+                <Ruler
+                  width={PAGE_WIDTH}
+                  height={visualHeight}
+                  marginLeft={margins.left}
+                  marginRight={margins.right}
+                  marginTop={margins.top}
+                  marginBottom={margins.bottom}
+                  onMarginsChange={handleMarginsChange}
+                />
+              </div>
+            )}
+            <div
+              className="page-container"
+              style={{
+                marginLeft: showRulers ? "30px" : "0",
+                marginTop: showRulers ? "30px" : "0",
+              }}
+            >
               <div className="page-stack" style={{ width: PAGE_WIDTH }}>
-                {/* Background pages */}
                 {Array.from({ length: Math.max(1, totalPages) }).map((_, i) => (
                   <div
                     key={i}
                     className="page-visual-bg"
                     style={{ width: PAGE_WIDTH, height: PAGE_HEIGHT }}
                   >
-                    <Watermark visible={showWatermark} />
-                    {/* header/footer are visual and sit above text to mask it from appearing in these bands */}
+                    <Watermark
+                      visible={showWatermark}
+                      watermarkData={currentDocument?.watermark}
+                    />
                     <div className="page-header">
                       <div className="flex justify-between items-center px-4 py-2 text-xs text-gray-500 border-b border-gray-200">
                         <span className="font-medium truncate">
@@ -471,7 +632,6 @@ const AdvancedDocumentEditor: React.FC = () => {
                   </div>
                 ))}
 
-                {/* The actual editor layer */}
                 <div
                   className="editor-overlay"
                   style={{ width: PAGE_WIDTH, height: visualHeight }}

@@ -1,3 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Avenir Next", system-ui, -apple-system, sans-serif;
+  background-color: #f9fafb;
+  overflow-x: hidden;
+}
+
+#root {
+  height: 100vh;
+  overflow: hidden;
+}
+
+@media (max-width: 1023px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  #root {
+    overflow-x: hidden;
+  }
+
+  .app-layout .mobile-header {
+    position: relative;
+    z-index: 30;
+  }
+
+  .app-layout #sidebar {
+    z-index: 50;
+  }
+
+  .app-layout .sidebar-overlay {
+    z-index: 40;
+  }
+}
+
+.ruler-overlay {
+  pointer-events: auto;
+}
+
+.ruler-overlay div[title] {
+  cursor: pointer;
+}
+
+.ruler-overlay div[title]:hover {
+  transform: scale(1.1);
+  transition: transform 0.2s ease;
+}
+
+.ruler-horizontal {
+  background: linear-gradient(to bottom, #f3f4f6, #e5e7eb);
+  border-bottom: 1px solid #9ca3af;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ruler-vertical {
+  background: linear-gradient(to right, #f3f4f6, #e5e7eb);
+  border-right: 1px solid #9ca3af;
+  box-shadow: 1px 0 3px rgba(0, 0, 0, 0.1);
+}
+
+.ruler-corner {
+  background: linear-gradient(135deg, #f9fafb, #e5e7eb);
+  border-right: 1px solid #9ca3af;
+  border-bottom: 1px solid #9ca3af;
+}
+
+.ruler-mark {
+  background-color: #4b5563;
+}
+
+.ruler-mark-major {
+  background-color: #374151;
+}
+
+.ruler-label {
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+  font-size: 10px;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.margin-indicator {
+  background-color: #3b82f6;
+  opacity: 0.7;
+  box-shadow: 0 0 4px rgba(59, 130, 246, 0.3);
+}
+
+.margin-area {
+  background-color: rgba(34, 197, 94, 0.1);
+  border: 2px dashed #22c55e;
+  opacity: 0.6;
+}
+
+.margin-guide-overlay {
+  position: absolute;
+  pointer-events: none;
+  z-index: 6;
+  border: 2px dashed #22c55e;
+  background: rgba(34, 197, 94, 0.05);
+  transition: all 0.2s ease;
+}
+
 .editor-scroll-container {
   background-color: #e9ecef;
   padding: 0;
@@ -14,6 +125,7 @@
   justify-content: center;
   align-items: flex-start;
   padding: 2rem 1rem;
+  overflow: visible;
 }
 
 .page-container {
@@ -120,20 +232,23 @@
   hyphens: auto;
   word-break: break-word;
   white-space: pre-wrap;
+  transition: padding 0.3s ease;
+  background: rgba(255, 255, 255, 0.01);
 }
 
 .ProseMirror * {
-  max-width: 642px !important;
   word-wrap: break-word !important;
   overflow-wrap: break-word !important;
   word-break: break-word !important;
   box-sizing: border-box !important;
+  transition: inherit;
 }
 
 .ProseMirror p {
   margin: 0 0 16px 0;
   hyphens: auto;
-  max-width: 642px !important;
+  max-width: none !important;
+  width: 100% !important;
 }
 
 .ProseMirror h1,
@@ -141,7 +256,8 @@
 .ProseMirror h3 {
   font-weight: bold;
   margin: 24px 0 16px 0;
-  max-width: 642px !important;
+  max-width: none !important;
+  width: 100% !important;
 }
 
 .ProseMirror h1 {
@@ -161,14 +277,16 @@
 .ProseMirror h6 {
   font-weight: bold;
   margin: 16px 0 12px 0;
-  max-width: 642px !important;
+  max-width: none !important;
+  width: 100% !important;
 }
 
 .ProseMirror ol,
 .ProseMirror ul {
   margin: 16px 0;
   padding-left: 24px;
-  max-width: 642px !important;
+  max-width: none !important;
+  width: 100% !important;
 }
 
 .ProseMirror li {
@@ -208,14 +326,15 @@
   color: #6b7280;
   background: #f8f9fa;
   border-radius: 4px;
-  max-width: 622px !important;
+  max-width: none !important;
+  width: 100% !important;
 }
 
 .ProseMirror table {
   border-collapse: collapse;
   table-layout: fixed;
   width: 100% !important;
-  max-width: 642px !important;
+  max-width: none !important;
   margin: 16px 0;
   overflow: hidden;
 }
@@ -260,7 +379,7 @@
   break-before: page;
   clear: both;
   width: 100% !important;
-  max-width: 642px !important;
+  max-width: none !important;
 }
 
 .page-break::before {
@@ -292,27 +411,6 @@
   font-family: Arial, sans-serif !important;
   white-space: nowrap !important;
   letter-spacing: 6px !important;
-}
-
-.ruler-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 10;
-}
-
-.ruler-horizontal {
-  border-bottom: 1px solid #9ca3af;
-}
-
-.ruler-vertical {
-  border-right: 1px solid #9ca3af;
-}
-
-.margin-guide {
-  border: 1px dashed #3b82f6;
-  opacity: 0.3;
-  pointer-events: none;
 }
 
 @keyframes pulse-green {
@@ -367,7 +465,8 @@
   font-size: 13px;
   line-height: 1.4;
   margin: 16px 0;
-  max-width: 622px !important;
+  max-width: none !important;
+  width: 100% !important;
 }
 
 .ProseMirror pre code {
@@ -424,6 +523,16 @@
     border: none !important;
     font-size: 10pt !important;
     z-index: 0 !important;
+  }
+
+  .ruler-overlay,
+  .ruler-horizontal,
+  .ruler-vertical,
+  .ruler-corner,
+  .margin-indicator,
+  .margin-area,
+  .margin-guide-overlay {
+    display: none !important;
   }
 }
 

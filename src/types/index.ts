@@ -15,6 +15,18 @@ export interface Document {
   translatedText?: string;
   sourceLang?: string;
   targetLang?: string;
+  watermark?: {
+    enabled: boolean;
+    text?: string;
+    opacity?: number;
+  };
+  rulers?: boolean;
+  margins?: {
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  };
 }
 
 export interface ChatMessage {
