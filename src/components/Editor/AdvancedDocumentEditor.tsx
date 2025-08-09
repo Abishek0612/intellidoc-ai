@@ -220,23 +220,20 @@ const AdvancedDocumentEditor: React.FC = () => {
     extensions,
     content: "",
     editorProps: { attributes: { class: "ProseMirror" } },
-    onUpdate: useCallback(() => {
-      if (currentDocument && editor) {
+    onUpdate: ({ editor }) => {
+      setCurrentDocument((prevDoc) => {
+        if (!prevDoc) return null;
         const content = editor.getHTML();
-        setCurrentDocument((prev) =>
-          prev
-            ? {
-                ...prev,
-                content,
-                lastModified: new Date().toISOString(),
-                wordCount: getWordCount(content),
-                characterCount: getCharacterCount(content),
-                preview: createDocumentPreview(content),
-              }
-            : null
-        );
-      }
-    }, [currentDocument]),
+        return {
+          ...prevDoc,
+          content,
+          lastModified: new Date().toISOString(),
+          wordCount: getWordCount(content),
+          characterCount: getCharacterCount(content),
+          preview: createDocumentPreview(content),
+        };
+      });
+    },
     onCreate: useCallback(
       ({ editor }: { editor: Editor }) => {
         editor.commands.focus();
