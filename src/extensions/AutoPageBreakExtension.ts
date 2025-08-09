@@ -11,7 +11,7 @@ export const AutoPageBreak = Extension.create({
     return {
       pageHeight: 1123,
       contentHeight: 971,
-      enabled: false,
+      enabled: false, // Disabled by default to prevent loops
     };
   },
 
@@ -25,6 +25,7 @@ export const AutoPageBreak = Extension.create({
       doc.descendants((node: any, pos: number) => {
         if (foundPosition) return false;
 
+        // Skip if this is already a page break
         if (node.type.name === "pageBreak") {
           return true;
         }
@@ -48,6 +49,7 @@ export const AutoPageBreak = Extension.create({
       const { doc } = view.state;
       let hasPageBreak = false;
 
+      // Check if there's already a page break within 100 characters
       doc.nodesBetween(
         Math.max(0, position - 100),
         Math.min(doc.content.size, position + 100),
@@ -79,14 +81,17 @@ export const AutoPageBreak = Extension.create({
           let insertionCount = 0;
 
           const checkPageOverflow = () => {
+            // Prevent too frequent checks
             const now = Date.now();
-            if (now - lastCheckTime < 2000) return;
+            if (now - lastCheckTime < 2000) return; // 2 second cooldown
             lastCheckTime = now;
 
+            // Reset insertion count every 10 seconds
             if (now - lastCheckTime > 10000) {
               insertionCount = 0;
             }
 
+            // Prevent infinite loops - max 3 insertions per session
             if (insertionCount >= 3) return;
 
             if (!this.options.enabled) return;
@@ -171,6 +176,7 @@ export const AutoPageBreak = Extension.create({
       checkPageOverflow:
         () =>
         ({ editor, view }) => {
+          // Manual command - no restrictions
           const { contentHeight } = this.options;
           const editorElement = view.dom;
           const currentHeight = editorElement.scrollHeight;

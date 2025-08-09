@@ -1,19 +1,10 @@
 import React from "react";
-import { Node, mergeAttributes, type CommandProps } from "@tiptap/core";
+import { Node, mergeAttributes } from "@tiptap/core";
 import {
   ReactNodeViewRenderer,
   NodeViewWrapper,
   NodeViewContent,
 } from "@tiptap/react";
-
-declare module "@tiptap/core" {
-  interface Commands<ReturnType> {
-    editableHeader: {
-      insertHeader: (attributes?: Record<string, any>) => ReturnType;
-      updateHeader: (attributes: Record<string, any>) => ReturnType;
-    };
-  }
-}
 
 interface HeaderNodeViewProps {
   node: any;
@@ -26,17 +17,28 @@ const HeaderNodeView: React.FC<HeaderNodeViewProps> = ({
   updateAttributes,
 }) => {
   return (
-    <NodeViewWrapper className="editable-header-wrapper">
-      <div className="editable-header-content">
-        <div className="header-left">
-          <NodeViewContent
-            className="header-text"
-            data-placeholder="Document Title"
-          />
-        </div>
-        <div className="header-right">
-          <span className="page-number">Page {node.attrs.pageNumber || 1}</span>
-        </div>
+    <NodeViewWrapper className="editable-header">
+      <div
+        className="header-content"
+        style={{
+          position: "absolute",
+          top: "0",
+          left: "0",
+          right: "0",
+          height: "40px",
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+          padding: "8px 16px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          fontSize: "12px",
+          color: "#6b7280",
+          zIndex: 10,
+        }}
+      >
+        <NodeViewContent className="header-left" />
+        <div className="header-right">Page {node.attrs.pageNumber || 1}</div>
       </div>
     </NodeViewWrapper>
   );
@@ -49,25 +51,13 @@ export const EditableHeader = Node.create({
 
   content: "inline*",
 
-  isolating: true,
-
   addAttributes() {
     return {
       pageNumber: {
         default: 1,
-        renderHTML: (attributes) => ({
-          "data-page-number": attributes.pageNumber,
-        }),
-        parseHTML: (element) =>
-          parseInt(element.getAttribute("data-page-number") || "1"),
       },
       documentTitle: {
         default: "",
-        renderHTML: (attributes) => ({
-          "data-document-title": attributes.documentTitle,
-        }),
-        parseHTML: (element) =>
-          element.getAttribute("data-document-title") || "",
       },
     };
   },
@@ -76,13 +66,6 @@ export const EditableHeader = Node.create({
     return [
       {
         tag: 'div[data-type="editable-header"]',
-        getAttrs: (element) => ({
-          pageNumber: parseInt(
-            (element as HTMLElement).getAttribute("data-page-number") || "1"
-          ),
-          documentTitle:
-            (element as HTMLElement).getAttribute("data-document-title") || "",
-        }),
       },
     ];
   },
@@ -92,26 +75,9 @@ export const EditableHeader = Node.create({
       "div",
       mergeAttributes(HTMLAttributes, {
         "data-type": "editable-header",
-        class: "editable-header-wrapper",
+        class: "editable-header",
       }),
-      [
-        "div",
-        { class: "editable-header-content" },
-        [
-          "div",
-          { class: "header-left" },
-          ["span", { class: "header-text" }, 0],
-        ],
-        [
-          "div",
-          { class: "header-right" },
-          [
-            "span",
-            { class: "page-number" },
-            `Page ${HTMLAttributes["data-page-number"] || 1}`,
-          ],
-        ],
-      ],
+      0,
     ];
   },
 
@@ -121,19 +87,13 @@ export const EditableHeader = Node.create({
 
   addCommands() {
     return {
-      insertHeader:
-        (attributes = {}) =>
-        ({ commands }: CommandProps) => {
+      setHeader:
+        (attributes) =>
+        ({ commands }) => {
           return commands.insertContent({
             type: this.name,
             attrs: attributes,
           });
-        },
-
-      updateHeader:
-        (attributes: Record<string, any>) =>
-        ({ commands }: CommandProps) => {
-          return commands.updateAttributes(this.name, attributes);
         },
     };
   },
