@@ -1,26 +1,10 @@
-import { Extension, type CommandProps } from "@tiptap/core";
+import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { DecorationSet } from "@tiptap/pm/view";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 const AutoPageBreakPlugin = new PluginKey("autoPageBreak");
 
-declare module "@tiptap/core" {
-  interface Commands<ReturnType> {
-    autoPageBreak: {
-      enableAutoPageBreak: () => ReturnType;
-
-      disableAutoPageBreak: () => ReturnType;
-
-      checkPageOverflow: () => ReturnType;
-    };
-  }
-}
-
-export const AutoPageBreak = Extension.create<{
-  pageHeight: number;
-  contentHeight: number;
-  enabled: boolean;
-}>({
+export const AutoPageBreak = Extension.create({
   name: "autoPageBreak",
 
   addOptions() {
@@ -32,8 +16,6 @@ export const AutoPageBreak = Extension.create<{
   },
 
   addProseMirrorPlugins() {
-    const ext = this;
-
     const findPageBreakPosition = (view: any, maxHeight: number) => {
       const { doc } = view.state;
       let currentHeight = 0;
@@ -47,9 +29,9 @@ export const AutoPageBreak = Extension.create<{
           return true;
         }
 
-        const dom = view.nodeDOM(pos) as HTMLElement | null;
-        if (dom && (dom as any).offsetHeight) {
-          currentHeight += (dom as any).offsetHeight;
+        const dom = view.nodeDOM(pos);
+        if (dom && dom.offsetHeight) {
+          currentHeight += dom.offsetHeight;
           if (currentHeight > maxHeight) {
             position = pos;
             foundPosition = true;
@@ -99,17 +81,18 @@ export const AutoPageBreak = Extension.create<{
           const checkPageOverflow = () => {
             const now = Date.now();
             if (now - lastCheckTime < 2000) return;
+            lastCheckTime = now;
+
             if (now - lastCheckTime > 10000) {
               insertionCount = 0;
             }
-            lastCheckTime = now;
 
             if (insertionCount >= 3) return;
 
-            if (!ext.options.enabled) return;
+            if (!this.options.enabled) return;
 
-            const { contentHeight } = ext.options;
-            const editorElement = view.dom as HTMLElement;
+            const { contentHeight } = this.options;
+            const editorElement = view.dom;
             const currentHeight = editorElement.scrollHeight;
 
             if (currentHeight > contentHeight) {
@@ -125,11 +108,11 @@ export const AutoPageBreak = Extension.create<{
                 try {
                   const schema = view.state.schema;
                   if (schema.nodes.pageBreak) {
-                    const tr = view.state.tr.insert(
+                    const transaction = view.state.tr.insert(
                       pageBreakPosition,
                       schema.nodes.pageBreak.create()
                     );
-                    view.dispatch(tr);
+                    view.dispatch(transaction);
                     insertionCount++;
                   }
                 } catch (error) {
@@ -142,7 +125,7 @@ export const AutoPageBreak = Extension.create<{
           return {
             update: () => {
               if (timeoutId) clearTimeout(timeoutId);
-              timeoutId = window.setTimeout(checkPageOverflow, 1000);
+              timeoutId = window.setTimeout(checkPageOverflow, 1000); // Increased delay
             },
             destroy: () => {
               if (timeoutId) clearTimeout(timeoutId);
@@ -173,58 +156,62 @@ export const AutoPageBreak = Extension.create<{
 
   addCommands() {
     return {
-      enableAutoPageBreak: () => (_: CommandProps) => {
-        this.options.enabled = true;
-        return true;
-      },
-
-      disableAutoPageBreak: () => (_: CommandProps) => {
-        this.options.enabled = false;
-        return true;
-      },
-
+      enableAutoPageBreak:
+        () =>
+        ({ editor }) => {
+          this.options.enabled = true;
+          return true;
+        },
+      disableAutoPageBreak:
+        () =>
+        ({ editor }) => {
+          this.options.enabled = false;
+          return true;
+        },
       checkPageOverflow:
         () =>
-        ({ editor, view }: CommandProps) => {
-          if (!view) return false;
-
+        ({ editor, view }) => {
           const { contentHeight } = this.options;
-          const editorElement = view.dom as HTMLElement;
+          const editorElement = view.dom;
           const currentHeight = editorElement.scrollHeight;
 
-          if (currentHeight <= contentHeight) return false;
+          if (currentHeight > contentHeight) {
+            const findPageBreakPosition = (view: any, maxHeight: number) => {
+              const { doc } = view.state;
+              let currentHeight = 0;
+              let position = 0;
 
-          const findPageBreakPosition = (view: any, maxHeight: number) => {
-            const { doc } = view.state;
-            let currentHeight = 0;
-            let position = 0;
+              doc.descendants((node: any, pos: number) => {
+                if (node.type.name === "pageBreak") return true;
 
-            doc.descendants((node: any, pos: number) => {
-              if (node.type.name === "pageBreak") return true;
-
-              const dom = view.nodeDOM(pos) as HTMLElement | null;
-              if (dom && (dom as any).offsetHeight) {
-                currentHeight += (dom as any).offsetHeight;
-                if (currentHeight > maxHeight) {
-                  position = pos;
-                  return false;
+                const dom = view.nodeDOM(pos);
+                if (dom && dom.offsetHeight) {
+                  currentHeight += dom.offsetHeight;
+                  if (currentHeight > maxHeight) {
+                    position = pos;
+                    return false;
+                  }
                 }
-              }
-              return true;
-            });
+                return true;
+              });
 
-            return position;
-          };
+              return position;
+            };
 
-          const pageBreakPosition = findPageBreakPosition(view, contentHeight);
-          if (pageBreakPosition > 0) {
-            return editor
-              .chain()
-              .focus()
-              .insertContentAt(pageBreakPosition, { type: "pageBreak" })
-              .run();
+            const pageBreakPosition = findPageBreakPosition(
+              view,
+              contentHeight
+            );
+            if (pageBreakPosition > 0) {
+              return editor
+                .chain()
+                .focus()
+                .insertContentAt(pageBreakPosition, {
+                  type: "pageBreak",
+                })
+                .run();
+            }
           }
-
           return false;
         },
     };
