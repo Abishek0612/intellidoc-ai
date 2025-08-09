@@ -12,10 +12,7 @@ interface HeaderNodeViewProps {
   deleteNode: () => void;
 }
 
-const HeaderNodeView: React.FC<HeaderNodeViewProps> = ({
-  node,
-  updateAttributes,
-}) => {
+const HeaderNodeView: React.FC<HeaderNodeViewProps> = ({ node }) => {
   return (
     <NodeViewWrapper className="editable-header">
       <div
@@ -43,6 +40,17 @@ const HeaderNodeView: React.FC<HeaderNodeViewProps> = ({
     </NodeViewWrapper>
   );
 };
+
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    editableHeader: {
+      setHeader: (attributes?: {
+        pageNumber?: number;
+        documentTitle?: string;
+      }) => ReturnType;
+    };
+  }
+}
 
 export const EditableHeader = Node.create({
   name: "editableHeader",
@@ -88,7 +96,7 @@ export const EditableHeader = Node.create({
   addCommands() {
     return {
       setHeader:
-        (attributes) =>
+        (attributes = {}) =>
         ({ commands }) => {
           return commands.insertContent({
             type: this.name,

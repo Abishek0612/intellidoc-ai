@@ -40,6 +40,14 @@ const FooterNodeView: React.FC<FooterNodeViewProps> = ({ node }) => {
   );
 };
 
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    editableFooter: {
+      setFooter: (attributes?: { pageNumber?: number }) => ReturnType;
+    };
+  }
+}
+
 export const EditableFooter = Node.create({
   name: "editableFooter",
 
@@ -81,7 +89,7 @@ export const EditableFooter = Node.create({
   addCommands() {
     return {
       setFooter:
-        (attributes) =>
+        (attributes = {}) =>
         ({ commands }) => {
           return commands.insertContent({
             type: this.name,
