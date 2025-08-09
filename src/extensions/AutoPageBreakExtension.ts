@@ -11,7 +11,7 @@ export const AutoPageBreak = Extension.create({
     return {
       pageHeight: 1123,
       contentHeight: 971,
-      enabled: false, // Disabled by default to prevent loops
+      enabled: false,
     };
   },
 
@@ -25,7 +25,6 @@ export const AutoPageBreak = Extension.create({
       doc.descendants((node: any, pos: number) => {
         if (foundPosition) return false;
 
-        // Skip if this is already a page break
         if (node.type.name === "pageBreak") {
           return true;
         }
@@ -49,11 +48,10 @@ export const AutoPageBreak = Extension.create({
       const { doc } = view.state;
       let hasPageBreak = false;
 
-      // Check if there's already a page break within 100 characters
       doc.nodesBetween(
         Math.max(0, position - 100),
         Math.min(doc.content.size, position + 100),
-        (node) => {
+        (node: any) => {
           if (node.type.name === "pageBreak") {
             hasPageBreak = true;
             return false;
@@ -81,17 +79,14 @@ export const AutoPageBreak = Extension.create({
           let insertionCount = 0;
 
           const checkPageOverflow = () => {
-            // Prevent too frequent checks
             const now = Date.now();
-            if (now - lastCheckTime < 2000) return; // 2 second cooldown
+            if (now - lastCheckTime < 2000) return;
             lastCheckTime = now;
 
-            // Reset insertion count every 10 seconds
             if (now - lastCheckTime > 10000) {
               insertionCount = 0;
             }
 
-            // Prevent infinite loops - max 3 insertions per session
             if (insertionCount >= 3) return;
 
             if (!this.options.enabled) return;
@@ -130,7 +125,7 @@ export const AutoPageBreak = Extension.create({
           return {
             update: () => {
               if (timeoutId) clearTimeout(timeoutId);
-              timeoutId = window.setTimeout(checkPageOverflow, 1000); // Increased delay
+              timeoutId = window.setTimeout(checkPageOverflow, 1000);
             },
             destroy: () => {
               if (timeoutId) clearTimeout(timeoutId);
@@ -160,66 +155,6 @@ export const AutoPageBreak = Extension.create({
   },
 
   addCommands() {
-    return {
-      enableAutoPageBreak:
-        () =>
-        ({ editor }) => {
-          this.options.enabled = true;
-          return true;
-        },
-      disableAutoPageBreak:
-        () =>
-        ({ editor }) => {
-          this.options.enabled = false;
-          return true;
-        },
-      checkPageOverflow:
-        () =>
-        ({ editor, view }) => {
-          // Manual command - no restrictions
-          const { contentHeight } = this.options;
-          const editorElement = view.dom;
-          const currentHeight = editorElement.scrollHeight;
-
-          if (currentHeight > contentHeight) {
-            const findPageBreakPosition = (view: any, maxHeight: number) => {
-              const { doc } = view.state;
-              let currentHeight = 0;
-              let position = 0;
-
-              doc.descendants((node: any, pos: number) => {
-                if (node.type.name === "pageBreak") return true;
-
-                const dom = view.nodeDOM(pos);
-                if (dom && dom.offsetHeight) {
-                  currentHeight += dom.offsetHeight;
-                  if (currentHeight > maxHeight) {
-                    position = pos;
-                    return false;
-                  }
-                }
-                return true;
-              });
-
-              return position;
-            };
-
-            const pageBreakPosition = findPageBreakPosition(
-              view,
-              contentHeight
-            );
-            if (pageBreakPosition > 0) {
-              return editor
-                .chain()
-                .focus()
-                .insertContentAt(pageBreakPosition, {
-                  type: "pageBreak",
-                })
-                .run();
-            }
-          }
-          return false;
-        },
-    };
+    return {};
   },
 });
