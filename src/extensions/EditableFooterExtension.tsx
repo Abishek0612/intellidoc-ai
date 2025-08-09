@@ -1,10 +1,19 @@
 import React from "react";
-import { Node, mergeAttributes } from "@tiptap/core";
+import { Node, mergeAttributes, type CommandProps } from "@tiptap/core";
 import {
   ReactNodeViewRenderer,
   NodeViewWrapper,
   NodeViewContent,
 } from "@tiptap/react";
+
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    editableFooter: {
+      insertFooter: (attributes?: Record<string, any>) => ReturnType;
+      setFooter: (attributes: Record<string, any>) => ReturnType;
+    };
+  }
+}
 
 interface FooterNodeViewProps {
   node: any;
@@ -44,23 +53,16 @@ export const EditableFooter = Node.create({
   name: "editableFooter",
 
   group: "block",
-
   content: "inline*",
 
   addAttributes() {
     return {
-      pageNumber: {
-        default: 1,
-      },
+      pageNumber: { default: 1 },
     };
   },
 
   parseHTML() {
-    return [
-      {
-        tag: 'div[data-type="editable-footer"]',
-      },
-    ];
+    return [{ tag: 'div[data-type="editable-footer"]' }];
   },
 
   renderHTML({ HTMLAttributes }) {
@@ -80,13 +82,19 @@ export const EditableFooter = Node.create({
 
   addCommands() {
     return {
-      setFooter:
-        (attributes) =>
-        ({ commands }) => {
+      insertFooter:
+        (attributes?: Record<string, any>) =>
+        ({ commands }: CommandProps) => {
           return commands.insertContent({
             type: this.name,
-            attrs: attributes,
+            attrs: attributes ?? {},
           });
+        },
+
+      setFooter:
+        (attributes: Record<string, any>) =>
+        ({ commands }: CommandProps) => {
+          return commands.updateAttributes(this.name, attributes);
         },
     };
   },

@@ -1,10 +1,19 @@
 import React from "react";
-import { Node, mergeAttributes } from "@tiptap/core";
+import { Node, mergeAttributes, type CommandProps } from "@tiptap/core";
 import {
   ReactNodeViewRenderer,
   NodeViewWrapper,
   NodeViewContent,
 } from "@tiptap/react";
+
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    editableHeader: {
+      insertHeader: (attributes?: Record<string, any>) => ReturnType;
+      setHeader: (attributes: Record<string, any>) => ReturnType;
+    };
+  }
+}
 
 interface HeaderNodeViewProps {
   node: any;
@@ -12,10 +21,7 @@ interface HeaderNodeViewProps {
   deleteNode: () => void;
 }
 
-const HeaderNodeView: React.FC<HeaderNodeViewProps> = ({
-  node,
-  updateAttributes,
-}) => {
+const HeaderNodeView: React.FC<HeaderNodeViewProps> = ({ node }) => {
   return (
     <NodeViewWrapper className="editable-header">
       <div
@@ -48,26 +54,17 @@ export const EditableHeader = Node.create({
   name: "editableHeader",
 
   group: "block",
-
   content: "inline*",
 
   addAttributes() {
     return {
-      pageNumber: {
-        default: 1,
-      },
-      documentTitle: {
-        default: "",
-      },
+      pageNumber: { default: 1 },
+      documentTitle: { default: "" },
     };
   },
 
   parseHTML() {
-    return [
-      {
-        tag: 'div[data-type="editable-header"]',
-      },
-    ];
+    return [{ tag: 'div[data-type="editable-header"]' }];
   },
 
   renderHTML({ HTMLAttributes }) {
@@ -87,13 +84,19 @@ export const EditableHeader = Node.create({
 
   addCommands() {
     return {
-      setHeader:
-        (attributes) =>
-        ({ commands }) => {
+      insertHeader:
+        (attributes?: Record<string, any>) =>
+        ({ commands }: CommandProps) => {
           return commands.insertContent({
             type: this.name,
-            attrs: attributes,
+            attrs: attributes ?? {},
           });
+        },
+
+      setHeader:
+        (attributes: Record<string, any>) =>
+        ({ commands }: CommandProps) => {
+          return commands.updateAttributes(this.name, attributes);
         },
     };
   },
