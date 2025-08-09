@@ -27,6 +27,15 @@ Vettam AI is a comprehensive, AI-powered document editing platform designed spec
 - **Table Support**: Resizable tables with header rows and advanced formatting
 - **Image Integration**: Inline image embedding with URL support
 - **Link Management**: Hyperlink creation and editing capabilities
+- **Watermarks**: Customizable watermarks for draft documents
+- **Margins & Rulers**: Visual margin guides with drag-to-adjust functionality
+
+### Multi-Format Export
+
+- **PDF Export**: High-quality PDF generation with proper formatting
+- **Word Document**: .docx format compatibility
+- **HTML Export**: Clean HTML with embedded styles
+- **Plain Text**: Text-only export option
 
 ### AI-Powered Capabilities
 
@@ -111,7 +120,7 @@ Vettam AI is a comprehensive, AI-powered document editing platform designed spec
 
 - **Conversational AI**: Natural language processing for document assistance
 - **Context Awareness**: Document-specific AI responses
-- **Session Management**: Persistent chat history and context
+- **Chat Management**: Persistent chat history and context
 - **Export Integration**: Chat results directly integrated into documents
 
 ## Installation & Setup
@@ -144,3 +153,7 @@ npm run dev
 ### Website Live site URL
 
 https://intellidocs-ai.netlify.app/
+
+### System design drawing (link)
+
+https://excalidraw.com/#json=UT5sMJuYd7JtJxfXDOzsG,IUdrV9PSZ2U2Og8Esr9rRA

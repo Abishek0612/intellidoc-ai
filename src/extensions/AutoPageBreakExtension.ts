@@ -1,6 +1,6 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import { Selection } from "@tiptap/pm/state";
 
 const AutoPageBreakPlugin = new PluginKey("autoPageBreak");
 
@@ -10,110 +10,74 @@ export const AutoPageBreak = Extension.create({
   addOptions() {
     return {
       pageHeight: 1123,
-      contentHeight: 971,
-      enabled: false,
+      contentHeight: 947,
+      enabled: true,
     };
   },
 
   addProseMirrorPlugins() {
-    const findPageBreakPosition = (view: any, maxHeight: number) => {
-      const { doc } = view.state;
-      let currentHeight = 0;
-      let position = 0;
-      let foundPosition = false;
-
-      doc.descendants((node: any, pos: number) => {
-        if (foundPosition) return false;
-
-        if (node.type.name === "pageBreak") {
-          return true;
-        }
-
-        const dom = view.nodeDOM(pos);
-        if (dom && dom.offsetHeight) {
-          currentHeight += dom.offsetHeight;
-          if (currentHeight > maxHeight) {
-            position = pos;
-            foundPosition = true;
-            return false;
-          }
-        }
-        return true;
-      });
-
-      return foundPosition ? position : 0;
-    };
-
-    const hasRecentPageBreak = (view: any, position: number) => {
-      const { doc } = view.state;
-      let hasPageBreak = false;
-
-      doc.nodesBetween(
-        Math.max(0, position - 100),
-        Math.min(doc.content.size, position + 100),
-        (node: any) => {
-          if (node.type.name === "pageBreak") {
-            hasPageBreak = true;
-            return false;
-          }
-        }
-      );
-
-      return hasPageBreak;
-    };
-
     return [
       new Plugin({
         key: AutoPageBreakPlugin,
-        state: {
-          init() {
-            return DecorationSet.empty;
-          },
-          apply(tr, decorationSet) {
-            return decorationSet.map(tr.mapping, tr.doc);
-          },
-        },
+
         view: (view) => {
           let timeoutId: number | null = null;
-          let lastCheckTime = 0;
-          let insertionCount = 0;
+          let lastContentLength = 0;
 
-          const checkPageOverflow = () => {
-            const now = Date.now();
-            if (now - lastCheckTime < 2000) return;
-            lastCheckTime = now;
-
-            if (now - lastCheckTime > 10000) {
-              insertionCount = 0;
-            }
-
-            if (insertionCount >= 3) return;
-
+          const checkForPageBreak = () => {
             if (!this.options.enabled) return;
 
-            const { contentHeight } = this.options;
-            const editorElement = view.dom;
-            const currentHeight = editorElement.scrollHeight;
+            const { doc, selection } = view.state;
+            const currentContentLength = doc.textContent.length;
 
-            if (currentHeight > contentHeight) {
-              const pageBreakPosition = findPageBreakPosition(
-                view,
-                contentHeight
-              );
+            if (currentContentLength <= lastContentLength) {
+              lastContentLength = currentContentLength;
+              return;
+            }
+            lastContentLength = currentContentLength;
 
-              if (
-                pageBreakPosition > 0 &&
-                !hasRecentPageBreak(view, pageBreakPosition)
-              ) {
+            const editorElement = view.dom as HTMLElement;
+            const contentHeight = editorElement.scrollHeight - 228;
+
+            if (contentHeight > this.options.contentHeight) {
+              const targetHeight = this.options.contentHeight;
+              let insertPos = 0;
+              let accumulatedHeight = 0;
+
+              doc.descendants((node, pos) => {
+                if (accumulatedHeight >= targetHeight * 0.9) {
+                  insertPos = pos;
+                  return false;
+                }
+
+                if (node.type.name === "paragraph") {
+                  accumulatedHeight += 20;
+                } else if (node.type.name === "heading") {
+                  accumulatedHeight += 30;
+                }
+
+                return accumulatedHeight < targetHeight;
+              });
+
+              if (insertPos > 0) {
                 try {
                   const schema = view.state.schema;
                   if (schema.nodes.pageBreak) {
-                    const transaction = view.state.tr.insert(
-                      pageBreakPosition,
-                      schema.nodes.pageBreak.create()
-                    );
+                    const transaction = view.state.tr
+                      .insert(insertPos, schema.nodes.pageBreak.create())
+                      .setSelection(
+                        Selection.near(view.state.doc.resolve(insertPos + 1))
+                      );
+
                     view.dispatch(transaction);
-                    insertionCount++;
+
+                    setTimeout(() => {
+                      view.focus();
+                      const newPos = insertPos + 1;
+                      const $pos = view.state.doc.resolve(newPos);
+                      const newSelection = Selection.near($pos);
+                      view.dispatch(view.state.tr.setSelection(newSelection));
+                    }, 100);
                   }
                 } catch (error) {
                   console.warn("Auto page break insertion failed:", error);
@@ -125,36 +89,14 @@ export const AutoPageBreak = Extension.create({
           return {
             update: () => {
               if (timeoutId) clearTimeout(timeoutId);
-              timeoutId = window.setTimeout(checkPageOverflow, 1000);
+              timeoutId = window.setTimeout(checkForPageBreak, 300);
             },
             destroy: () => {
               if (timeoutId) clearTimeout(timeoutId);
             },
           };
         },
-        props: {
-          decorations(state) {
-            return this.getState(state);
-          },
-        },
       }),
     ];
-  },
-
-  addGlobalAttributes() {
-    return [
-      {
-        types: ["paragraph", "heading"],
-        attributes: {
-          pageNumber: {
-            default: 1,
-          },
-        },
-      },
-    ];
-  },
-
-  addCommands() {
-    return {};
   },
 });

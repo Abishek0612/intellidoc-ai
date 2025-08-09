@@ -432,7 +432,9 @@ const AdvancedDocumentEditor: React.FC = () => {
     });
     if (editor) {
       editor.commands.setContent("");
-      editor.commands.focus();
+      setTimeout(() => {
+        editor.commands.focus("start");
+      }, 100);
     }
     setLastSaved(null);
   }, [editor]);
@@ -470,9 +472,12 @@ const AdvancedDocumentEditor: React.FC = () => {
     characters: currentDocument?.characterCount || 0,
   };
 
-  const visualHeight =
-    PAGE_HEIGHT * Math.max(1, totalPages) +
-    PAGE_GAP * Math.max(0, totalPages - 1);
+  const visualHeight = useMemo(() => {
+    if (totalPages === 1) {
+      return PAGE_HEIGHT;
+    }
+    return PAGE_HEIGHT * totalPages + PAGE_GAP * (totalPages - 1);
+  }, [totalPages]);
 
   return (
     <div className="flex-1 flex h-full bg-gray-50 overflow-hidden">
@@ -608,7 +613,7 @@ const AdvancedDocumentEditor: React.FC = () => {
               }}
             >
               <div className="page-stack" style={{ width: PAGE_WIDTH }}>
-                {Array.from({ length: Math.max(1, totalPages) }).map((_, i) => (
+                {Array.from({ length: totalPages }).map((_, i) => (
                   <div
                     key={i}
                     className="page-visual-bg"

@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Editor } from "@tiptap/react";
-import { PAGE_CONFIG } from "../utils/constants";
 
 interface UsePaginationReturn {
   currentPage: number;
   totalPages: number;
   scrollContainerRef: React.RefObject<HTMLDivElement>;
 }
+
+const PAGE_HEIGHT = 1123;
+const USABLE_HEIGHT = 947;
 
 export const usePagination = (editor: Editor | null): UsePaginationReturn => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -19,37 +21,55 @@ export const usePagination = (editor: Editor | null): UsePaginationReturn => {
       return;
     }
 
-    const contentHeight = editor.view.dom.scrollHeight;
-    const pageContentHeight =
-      PAGE_CONFIG.A4_HEIGHT_PX - PAGE_CONFIG.MARGIN_PX * 2;
-    const calculatedTotalPages = Math.max(
-      1,
-      Math.ceil(contentHeight / pageContentHeight)
-    );
+    const proseMirrorElement = editor.view.dom as HTMLElement;
+    const content =
+      proseMirrorElement.textContent || proseMirrorElement.innerText || "";
+
+    if (content.trim().length === 0) {
+      setTotalPages(1);
+      setCurrentPage(1);
+      return;
+    }
+
+    const contentHeight = proseMirrorElement.scrollHeight;
+    const actualContentHeight = contentHeight - 228;
+
+    let calculatedPages = 1;
+    if (actualContentHeight > USABLE_HEIGHT) {
+      calculatedPages = Math.ceil(actualContentHeight / USABLE_HEIGHT);
+    }
+
+    const pageBreaks =
+      editor.getHTML().split('data-type="page-break"').length - 1;
+    calculatedPages = Math.max(calculatedPages, pageBreaks + 1);
+
+    setTotalPages(Math.max(1, calculatedPages));
 
     const { scrollTop } = scrollContainerRef.current;
-    const effectivePageHeight = PAGE_CONFIG.A4_HEIGHT_PX;
+    const effectivePageHeight = PAGE_HEIGHT + 24;
     const calculatedCurrentPage =
       Math.floor(scrollTop / effectivePageHeight) + 1;
 
-    setTotalPages(calculatedTotalPages);
     setCurrentPage(
-      Math.max(1, Math.min(calculatedCurrentPage, calculatedTotalPages))
+      Math.max(1, Math.min(calculatedCurrentPage, calculatedPages))
     );
   }, [editor]);
 
   useEffect(() => {
     if (editor) {
       const debouncedCalculation = () => {
-        if (calculationTimeoutRef.current)
+        if (calculationTimeoutRef.current) {
           clearTimeout(calculationTimeoutRef.current);
+        }
         calculationTimeoutRef.current = window.setTimeout(
           calculatePageMetrics,
-          250
+          100
         );
       };
 
       editor.on("update", debouncedCalculation);
+      editor.on("selectionUpdate", debouncedCalculation);
+
       const scrollContainer = scrollContainerRef.current;
       if (scrollContainer) {
         scrollContainer.addEventListener("scroll", debouncedCalculation, {
@@ -64,11 +84,13 @@ export const usePagination = (editor: Editor | null): UsePaginationReturn => {
 
       return () => {
         editor.off("update", debouncedCalculation);
+        editor.off("selectionUpdate", debouncedCalculation);
         if (scrollContainer) {
           scrollContainer.removeEventListener("scroll", debouncedCalculation);
         }
-        if (calculationTimeoutRef.current)
+        if (calculationTimeoutRef.current) {
           clearTimeout(calculationTimeoutRef.current);
+        }
         observer.disconnect();
       };
     }
