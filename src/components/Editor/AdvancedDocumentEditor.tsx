@@ -32,6 +32,7 @@ import { toast } from "react-toastify";
 import "../../styles/editor.css";
 import { EditableHeader } from "../../extensions/EditableHeaderExtension";
 import { EditableFooter } from "../../extensions/EditableFooterExtension";
+import { Edit3, Check, X, Sliders } from "lucide-react";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -159,6 +160,125 @@ const LiveStats: React.FC<{
   );
 };
 
+const WatermarkEditor: React.FC<{
+  visible: boolean;
+  text: string;
+  opacity: number;
+  watermarkEnabled: boolean;
+  onTextChange: (text: string) => void;
+  onOpacityChange: (opacity: number) => void;
+  onSave: (wasEnabled: boolean) => void;
+  onClose: () => void;
+}> = ({
+  visible,
+  text,
+  opacity,
+  watermarkEnabled,
+  onTextChange,
+  onOpacityChange,
+  onSave,
+  onClose,
+}) => {
+  const [localText, setLocalText] = useState(text);
+  const [localOpacity, setLocalOpacity] = useState(opacity);
+
+  useEffect(() => {
+    setLocalText(text);
+    setLocalOpacity(opacity);
+  }, [text, opacity]);
+
+  const handleSave = () => {
+    onTextChange(localText);
+    onOpacityChange(localOpacity);
+    onSave(watermarkEnabled);
+    onClose();
+  };
+
+  const handleCancel = () => {
+    setLocalText(text);
+    setLocalOpacity(opacity);
+    onClose();
+  };
+
+  if (!visible) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+        <h3 className="text-lg font-semibold mb-4">Edit Watermark</h3>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Watermark Text
+            </label>
+            <input
+              type="text"
+              value={localText}
+              onChange={(e) => setLocalText(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter watermark text"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Opacity: {Math.round(localOpacity * 100)}%
+            </label>
+            <input
+              type="range"
+              min="0.02"
+              max="0.3"
+              step="0.01"
+              value={localOpacity}
+              onChange={(e) => setLocalOpacity(parseFloat(e.target.value))}
+              className="w-full"
+            />
+          </div>
+
+          <div className="bg-gray-100 p-4 rounded-lg relative overflow-hidden">
+            <div className="text-xs text-gray-600 mb-2">Preview:</div>
+            <div
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%) rotate(-45deg)",
+                fontSize: "16px",
+                fontWeight: "300",
+                color: "#999",
+                opacity: localOpacity,
+                pointerEvents: "none",
+                userSelect: "none",
+                whiteSpace: "nowrap",
+                letterSpacing: "2px",
+              }}
+            >
+              {localText}
+            </div>
+            <div className="h-16"></div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={handleCancel}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const PAGE_WIDTH = 794;
 const PAGE_HEIGHT = 1123;
 const HEADER_H = 40;
@@ -174,12 +294,33 @@ const AdvancedDocumentEditor: React.FC = () => {
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [showWatermark, setShowWatermark] = useState(false);
   const [showRulers, setShowRulers] = useState(false);
+  const [watermarkText, setWatermarkText] = useState("This is a watermark");
+  const [watermarkOpacity, setWatermarkOpacity] = useState(0.08);
+  const [showWatermarkEditor, setShowWatermarkEditor] = useState(false);
   const [margins, setMargins] = useState({
     left: DEFAULT_MARGIN,
     right: DEFAULT_MARGIN,
     top: DEFAULT_MARGIN,
     bottom: DEFAULT_MARGIN,
   });
+
+  useEffect(() => {
+    const savedWatermarkSettings = localStorage.getItem("watermarkSettings");
+    if (savedWatermarkSettings) {
+      try {
+        const settings = JSON.parse(savedWatermarkSettings);
+        setWatermarkText(settings.text || "This is a watermark");
+        setWatermarkOpacity(settings.opacity || 0.08);
+      } catch (error) {
+        console.error("Error loading watermark settings:", error);
+      }
+    }
+  }, []);
+
+  const saveWatermarkSettings = useCallback((text: string, opacity: number) => {
+    const settings = { text, opacity };
+    localStorage.setItem("watermarkSettings", JSON.stringify(settings));
+  }, []);
 
   const extensions = useMemo(
     () => [
@@ -296,6 +437,8 @@ const AdvancedDocumentEditor: React.FC = () => {
 
       if (doc.watermark) {
         setShowWatermark(doc.watermark.enabled);
+        setWatermarkText(doc.watermark.text || watermarkText);
+        setWatermarkOpacity(doc.watermark.opacity || watermarkOpacity);
       } else {
         setShowWatermark(false);
       }
@@ -328,7 +471,7 @@ const AdvancedDocumentEditor: React.FC = () => {
       }
       setLastSaved(doc.lastModified);
     },
-    [editor]
+    [editor, watermarkText, watermarkOpacity]
   );
 
   const saveDocument = useCallback(() => {
@@ -344,8 +487,8 @@ const AdvancedDocumentEditor: React.FC = () => {
       preview: createDocumentPreview(content),
       watermark: {
         enabled: showWatermark,
-        text: "This is a watermark",
-        opacity: 0.08,
+        text: watermarkText,
+        opacity: watermarkOpacity,
       },
       rulers: showRulers,
       margins: margins,
@@ -389,6 +532,8 @@ const AdvancedDocumentEditor: React.FC = () => {
     title,
     dispatch,
     showWatermark,
+    watermarkText,
+    watermarkOpacity,
     showRulers,
     margins,
   ]);
@@ -406,8 +551,8 @@ const AdvancedDocumentEditor: React.FC = () => {
       preview: "",
       watermark: {
         enabled: false,
-        text: "This is a watermark",
-        opacity: 0.08,
+        text: watermarkText,
+        opacity: watermarkOpacity,
       },
       rulers: false,
       margins: {
@@ -434,7 +579,7 @@ const AdvancedDocumentEditor: React.FC = () => {
       }, 100);
     }
     setLastSaved(null);
-  }, [editor]);
+  }, [editor, watermarkText, watermarkOpacity]);
 
   const handleDocumentSelect = useCallback(
     (doc: Document) => {
@@ -463,6 +608,36 @@ const AdvancedDocumentEditor: React.FC = () => {
       }
     }
   }, [state.pageContent, dispatch, loadDocument, createNewDocument]);
+
+  const handleWatermarkTextChange = useCallback(
+    (text: string) => {
+      setWatermarkText(text);
+      saveWatermarkSettings(text, watermarkOpacity);
+    },
+    [watermarkOpacity, saveWatermarkSettings]
+  );
+
+  const handleWatermarkOpacityChange = useCallback(
+    (opacity: number) => {
+      setWatermarkOpacity(opacity);
+      saveWatermarkSettings(watermarkText, opacity);
+    },
+    [watermarkText, saveWatermarkSettings]
+  );
+
+  const handleWatermarkSave = useCallback((wasEnabled: boolean) => {
+    setShowWatermark(true);
+    if (!wasEnabled) {
+      toast.success("Watermark enabled!", {
+        position: window.innerWidth < 768 ? "top-center" : "top-right",
+        autoClose: 2000,
+      });
+    }
+  }, []);
+
+  const handleOpenWatermarkEditor = useCallback(() => {
+    setShowWatermarkEditor(true);
+  }, []);
 
   const stats = {
     words: currentDocument?.wordCount || 0,
@@ -525,26 +700,37 @@ const AdvancedDocumentEditor: React.FC = () => {
               >
                 Page Break
               </button>
-              <button
-                onClick={() => {
-                  setShowWatermark(!showWatermark);
-                  toast.info(
-                    !showWatermark ? "Watermark enabled" : "Watermark disabled",
-                    {
-                      position:
-                        window.innerWidth < 768 ? "top-center" : "top-right",
-                      autoClose: 2000,
-                    }
-                  );
-                }}
-                className={`px-2 py-1 rounded text-xs transition-colors ${
-                  showWatermark
-                    ? "bg-green-500 text-white hover:bg-green-600"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-              >
-                Watermark {currentDocument?.watermark?.enabled ? "✓" : ""}
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    setShowWatermark(!showWatermark);
+                    toast.info(
+                      !showWatermark
+                        ? "Watermark enabled"
+                        : "Watermark disabled",
+                      {
+                        position:
+                          window.innerWidth < 768 ? "top-center" : "top-right",
+                        autoClose: 2000,
+                      }
+                    );
+                  }}
+                  className={`px-2 py-1 rounded text-xs transition-colors ${
+                    showWatermark
+                      ? "bg-green-500 text-white hover:bg-green-600"
+                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
+                >
+                  Watermark {currentDocument?.watermark?.enabled ? "✓" : ""}
+                </button>
+                <button
+                  onClick={handleOpenWatermarkEditor}
+                  className="p-1 text-gray-500 hover:text-gray-700 transition-colors"
+                  title="Edit watermark"
+                >
+                  <Edit3 className="w-3 h-3" />
+                </button>
+              </div>
               <button
                 onClick={() => {
                   setShowRulers(!showRulers);
@@ -618,7 +804,11 @@ const AdvancedDocumentEditor: React.FC = () => {
                   >
                     <Watermark
                       visible={showWatermark}
-                      watermarkData={currentDocument?.watermark}
+                      watermarkData={{
+                        enabled: showWatermark,
+                        text: watermarkText,
+                        opacity: watermarkOpacity,
+                      }}
                     />
                     <div className="page-header">
                       <div className="flex justify-between items-center px-4 py-2 text-xs text-gray-500 border-b border-gray-200">
@@ -662,6 +852,17 @@ const AdvancedDocumentEditor: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <WatermarkEditor
+        visible={showWatermarkEditor}
+        text={watermarkText}
+        opacity={watermarkOpacity}
+        watermarkEnabled={showWatermark}
+        onTextChange={handleWatermarkTextChange}
+        onOpacityChange={handleWatermarkOpacityChange}
+        onSave={handleWatermarkSave}
+        onClose={() => setShowWatermarkEditor(false)}
+      />
     </div>
   );
 };
