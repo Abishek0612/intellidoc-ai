@@ -89,7 +89,7 @@ const Watermark: React.FC<{
     opacity?: number;
   };
 }> = ({
-  text = "LEGAL DRAFT",
+  text = "This is a watermark",
   opacity = 0.08,
   visible = false,
   watermarkData,
@@ -344,7 +344,7 @@ const AdvancedDocumentEditor: React.FC = () => {
       preview: createDocumentPreview(content),
       watermark: {
         enabled: showWatermark,
-        text: "LEGAL DRAFT",
+        text: "This is a watermark",
         opacity: 0.08,
       },
       rulers: showRulers,
@@ -406,7 +406,7 @@ const AdvancedDocumentEditor: React.FC = () => {
       preview: "",
       watermark: {
         enabled: false,
-        text: "LEGAL DRAFT",
+        text: "This is a watermark",
         opacity: 0.08,
       },
       rulers: false,

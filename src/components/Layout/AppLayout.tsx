@@ -3,6 +3,7 @@ import { useApp } from "../../context/AppContext";
 import Sidebar from "./Sidebar";
 import MobileHeader from "./MobileHeader";
 import LoadingSpinner from "../Common/LoadingSpinner";
+import FloatingChatbot from "../Chatbot/FloatingChatbot";
 
 const DocumentEditor = React.lazy(() => import("../Pages/DocumentEditor"));
 const ChatPage = React.lazy(() => import("../Pages/ChatPage"));
@@ -42,6 +43,7 @@ const AppLayout: React.FC = () => {
           </Suspense>
         </div>
       </div>
+      <FloatingChatbot />
     </div>
   );
 };
