@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 interface ChatbotMessageProps {
   message: {
     id: string;
-    type: "user" | "bot";
+    type: "user" | "bot" | "system";
     content: string;
     timestamp: Date;
     actions?: Array<{ label: string; action: string }>;
@@ -27,20 +27,36 @@ const ChatbotMessage: React.FC<ChatbotMessageProps> = ({ message, isLast }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const getMessageIcon = () => {
+    switch (message.type) {
+      case "user":
+        return <User className="w-4 h-4" />;
+      case "system":
+        return <Bot className="w-4 h-4 text-orange-500" />;
+      default:
+        return <Bot className="w-4 h-4" />;
+    }
+  };
+
+  const getMessageClass = () => {
+    switch (message.type) {
+      case "user":
+        return "chatbot-message-user";
+      case "system":
+        return "chatbot-message-system";
+      default:
+        return "chatbot-message-bot";
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: isVisible ? 1 : 0, y: isVisible ? 0 : 20 }}
       transition={{ duration: 0.3 }}
-      className={`chatbot-message chatbot-message-${message.type}`}
+      className={`chatbot-message ${getMessageClass()}`}
     >
-      <div className="chatbot-message-avatar">
-        {message.type === "user" ? (
-          <User className="w-4 h-4" />
-        ) : (
-          <Bot className="w-4 h-4" />
-        )}
-      </div>
+      <div className="chatbot-message-avatar">{getMessageIcon()}</div>
 
       <div className="chatbot-message-content">
         <div className="chatbot-message-bubble">
@@ -75,7 +91,7 @@ const ChatbotMessage: React.FC<ChatbotMessageProps> = ({ message, isLast }) => {
             })}
           </span>
 
-          {message.type === "bot" && (
+          {(message.type === "bot" || message.type === "system") && (
             <button
               onClick={handleCopy}
               className="chatbot-copy-btn"

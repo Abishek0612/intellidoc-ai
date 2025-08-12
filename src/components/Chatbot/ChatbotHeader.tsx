@@ -6,6 +6,7 @@ import {
   RotateCcw,
   Bot,
   Sparkles,
+  Download,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -13,14 +14,18 @@ interface ChatbotHeaderProps {
   onClose: () => void;
   onMinimize: () => void;
   onClear: () => void;
+  onExport?: () => Promise<void>;
   isMinimized: boolean;
+  currentTask?: string;
 }
 
 const ChatbotHeader: React.FC<ChatbotHeaderProps> = ({
   onClose,
   onMinimize,
   onClear,
+  onExport,
   isMinimized,
+  currentTask,
 }) => {
   return (
     <div className="chatbot-header">
@@ -38,7 +43,9 @@ const ChatbotHeader: React.FC<ChatbotHeaderProps> = ({
             AI Assistant
             <Sparkles className="w-3 h-3 ml-1 inline text-yellow-400" />
           </h3>
-          <p className="chatbot-header-subtitle">Always here to help</p>
+          <p className="chatbot-header-subtitle">
+            {currentTask ? `Working on: ${currentTask}` : "Always here to help"}
+          </p>
         </div>
       </div>
 
@@ -50,6 +57,15 @@ const ChatbotHeader: React.FC<ChatbotHeaderProps> = ({
         >
           <RotateCcw className="w-4 h-4" />
         </button>
+        {onExport && (
+          <button
+            onClick={onExport}
+            className="chatbot-header-btn"
+            title="Export chat"
+          >
+            <Download className="w-4 h-4" />
+          </button>
+        )}
         <button
           onClick={onMinimize}
           className="chatbot-header-btn"
