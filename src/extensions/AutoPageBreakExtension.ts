@@ -1,7 +1,7 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { TextSelection } from "@tiptap/pm/state";
-import { Fragment, Slice } from "@tiptap/pm/model";
+import { Fragment } from "@tiptap/pm/model";
 
 const AutoPageBreakPlugin = new PluginKey("autoPageBreak");
 
@@ -32,6 +32,74 @@ export const AutoPageBreak = Extension.create({
     const LINE_HEIGHT = 24;
     const MAX_LINES_PER_PAGE = Math.floor(USABLE_HEIGHT / LINE_HEIGHT);
 
+    const checkIfAtPageEnd = (view: any, pos: number): boolean => {
+      try {
+        const rect = view.coordsAtPos(pos);
+        const editorRect = view.dom.getBoundingClientRect();
+        const relativeY = rect.bottom - editorRect.top;
+
+        const currentPageNumber = Math.floor(relativeY / PAGE_HEIGHT) + 1;
+        const positionInPage = relativeY % PAGE_HEIGHT;
+        const pageContentBottom = PAGE_HEIGHT - FOOTER_HEIGHT - MARGIN_BOTTOM;
+
+        return positionInPage >= pageContentBottom - LINE_HEIGHT;
+      } catch (error) {
+        return false;
+      }
+    };
+
+    const insertAutomaticPageBreak = (view: any, pos: number): void => {
+      const { state, dispatch } = view;
+      const { schema } = state;
+
+      if (!schema.nodes.pageBreak) return;
+
+      const autoPageBreak = schema.nodes.pageBreak.create({
+        type: "automatic",
+      });
+      const tr = state.tr.insert(pos, autoPageBreak);
+
+      dispatch(tr.setSelection(TextSelection.create(tr.doc, pos + 1)));
+
+      setTimeout(() => {
+        const scrollContainer = view.dom.closest(".editor-scroll-container");
+        if (scrollContainer) {
+          try {
+            const rect = view.coordsAtPos(pos);
+            const editorRect = view.dom.getBoundingClientRect();
+            const relativeY = rect.bottom - editorRect.top;
+            const currentPageNumber = Math.floor(relativeY / PAGE_HEIGHT) + 1;
+
+            scrollContainer.scrollTo({
+              top: currentPageNumber * PAGE_HEIGHT,
+              behavior: "smooth",
+            });
+          } catch (error) {
+            console.log("Scroll error:", error);
+          }
+        }
+      }, 100);
+    };
+
+    const estimateNodeHeight = (node: any): number => {
+      if (node.type.name === "paragraph") {
+        const textLength = node.textContent.length;
+        const lines = Math.max(1, Math.ceil(textLength / 80));
+        return lines * LINE_HEIGHT;
+      } else if (node.type.name === "heading") {
+        return LINE_HEIGHT * 1.5;
+      }
+      return LINE_HEIGHT;
+    };
+
+    const getNodePosition = (pos: number): { y: number } | null => {
+      try {
+        return { y: pos * 0.5 };
+      } catch (e) {
+        return null;
+      }
+    };
+
     return [
       new Plugin({
         key: AutoPageBreakPlugin,
@@ -40,178 +108,73 @@ export const AutoPageBreak = Extension.create({
           handleKeyDown(view, event) {
             if (!options.enabled) return false;
 
-            if (event.key === "Backspace" || event.key === "Delete")
-              return false;
-            if (event.ctrlKey || event.metaKey || event.altKey) return false;
-
             const { state } = view;
             const { selection, doc, schema } = state;
 
-            if (!selection.empty || !schema.nodes.pageBreak) return false;
+            if (
+              [
+                "ArrowUp",
+                "ArrowDown",
+                "ArrowLeft",
+                "ArrowRight",
+                "Home",
+                "End",
+                "PageUp",
+                "PageDown",
+              ].includes(event.key)
+            ) {
+              return false;
+            }
 
-            const $pos = selection.$anchor;
-            const pos = $pos.pos;
+            if (event.ctrlKey || event.metaKey || event.altKey) return false;
 
-            const pageBreaks: Array<{ pos: number; textBefore: number }> = [];
-            let textBeforePos = 0;
-            let currentPageTextStart = 0;
+            if (selection.empty) {
+              const $pos = selection.$anchor;
+              const pos = $pos.pos;
 
-            doc.descendants((node, nodePos) => {
-              if (node.type.name === "pageBreak") {
-                pageBreaks.push({
-                  pos: nodePos,
-                  textBefore: textBeforePos,
-                });
-                currentPageTextStart = textBeforePos;
-              }
-              if (node.isText) {
-                textBeforePos += node.text.length;
-              }
-            });
+              let foundAutoBreak = false;
+              let autoBreakPos = -1;
 
-            let currentPage = 1;
-            for (const pageBreak of pageBreaks) {
-              if (pos > pageBreak.pos) {
-                currentPage++;
-                currentPageTextStart = pageBreak.pos + 1;
+              doc.descendants((node, nodePos) => {
+                if (
+                  node.type.name === "pageBreak" &&
+                  node.attrs.type === "automatic"
+                ) {
+                  if (nodePos < pos && pos <= nodePos + node.nodeSize + 10) {
+                    autoBreakPos = nodePos;
+                    foundAutoBreak = true;
+                  }
+                }
+              });
+
+              if (foundAutoBreak) {
+                if (event.key === "Backspace" && pos <= autoBreakPos + 2) {
+                  event.preventDefault();
+                  const tr = state.tr.delete(autoBreakPos, autoBreakPos + 1);
+                  view.dispatch(tr);
+                  return true;
+                }
+
+                if (event.key.length === 1 || event.key === "Enter") {
+                  event.preventDefault();
+                  return true;
+                }
               }
             }
 
-            const currentPageContent = doc.slice(currentPageTextStart, pos);
+            if (!selection.empty || !schema.nodes.pageBreak) return false;
 
-            let lineCount = 1;
-            let charCount = 0;
-            currentPageContent.content.forEach((node) => {
-              if (node.isBlock) {
-                lineCount++;
-                charCount = 0;
-              } else if (node.isText) {
-                charCount += node.text.length;
-                lineCount += Math.floor(charCount / 80);
-              }
-            });
-
-            const isAtPageLimit = lineCount >= MAX_LINES_PER_PAGE - 1;
-
-            const coords = view.coordsAtPos(pos);
-            const editorRect = view.dom.getBoundingClientRect();
-            const relativeY = coords.bottom - editorRect.top;
-            const pageBottom =
-              currentPage * PAGE_HEIGHT - FOOTER_HEIGHT - MARGIN_BOTTOM;
-            const distanceFromBottom = pageBottom - relativeY;
-
-            const shouldBreak =
-              isAtPageLimit || distanceFromBottom < LINE_HEIGHT;
+            const shouldInsertAutoBreak = checkIfAtPageEnd(
+              view,
+              selection.$anchor.pos
+            );
 
             if (
-              shouldBreak &&
+              shouldInsertAutoBreak &&
               (event.key === "Enter" || event.key.length === 1)
             ) {
               event.preventDefault();
-              event.stopPropagation();
-
-              const { tr } = state;
-
-              const $insertPos = doc.resolve(
-                Math.min(pos, doc.content.size - 1)
-              );
-              let insertPos = pos;
-
-              if ($insertPos.parent.type.name === "paragraph") {
-                const parentOffset = $insertPos.parentOffset;
-                const parent = $insertPos.parent;
-
-                if (parentOffset < parent.content.size) {
-                  const before = parent.cut(0, parentOffset);
-                  const after = parent.cut(parentOffset);
-
-                  const beforePara = schema.nodes.paragraph.create(
-                    null,
-                    before.content
-                  );
-                  const pageBreak = schema.nodes.pageBreak.create();
-                  const afterPara = schema.nodes.paragraph.create(
-                    null,
-                    after.content
-                  );
-
-                  const parentStart = $insertPos.before();
-                  const parentEnd = $insertPos.after();
-
-                  const fragment = Fragment.fromArray([
-                    beforePara,
-                    pageBreak,
-                    afterPara,
-                  ]);
-
-                  const transaction = tr
-                    .replaceRange(
-                      parentStart,
-                      parentEnd,
-                      new Slice(fragment, 0, 0)
-                    )
-                    .setSelection(
-                      TextSelection.create(
-                        tr.doc,
-                        parentStart + beforePara.nodeSize + 2
-                      )
-                    );
-
-                  view.dispatch(transaction);
-
-                  setTimeout(() => {
-                    const scrollContainer = view.dom.closest(
-                      ".editor-scroll-container"
-                    );
-                    if (scrollContainer) {
-                      const newPageTop = currentPage * PAGE_HEIGHT;
-                      scrollContainer.scrollTo({
-                        top: newPageTop,
-                        behavior: "smooth",
-                      });
-                    }
-
-                    if (event.key.length === 1) {
-                      document.execCommand("insertText", false, event.key);
-                    }
-
-                    view.focus();
-                  }, 50);
-
-                  return true;
-                } else {
-                  insertPos = $insertPos.after();
-                }
-              }
-
-              const pageBreak = schema.nodes.pageBreak.create();
-              const paragraph = schema.nodes.paragraph.create();
-
-              const transaction = tr
-                .insert(insertPos, Fragment.fromArray([pageBreak, paragraph]))
-                .setSelection(TextSelection.create(tr.doc, insertPos + 2));
-
-              view.dispatch(transaction);
-
-              setTimeout(() => {
-                const scrollContainer = view.dom.closest(
-                  ".editor-scroll-container"
-                );
-                if (scrollContainer) {
-                  const newPageTop = currentPage * PAGE_HEIGHT;
-                  scrollContainer.scrollTo({
-                    top: newPageTop,
-                    behavior: "smooth",
-                  });
-                }
-
-                if (event.key.length === 1) {
-                  document.execCommand("insertText", false, event.key);
-                }
-
-                view.focus();
-              }, 50);
-
+              insertAutomaticPageBreak(view, selection.$anchor.pos);
               return true;
             }
 
@@ -222,63 +185,25 @@ export const AutoPageBreak = Extension.create({
             if (!options.enabled) return false;
 
             const { state } = view;
-            const { doc, schema } = state;
+            const { doc } = state;
 
-            if (!schema.nodes.pageBreak) return false;
-
-            const coords = view.coordsAtPos(from);
-            const editorRect = view.dom.getBoundingClientRect();
-            const relativeY = coords.bottom - editorRect.top;
-
-            let currentPage = 1;
-            const pageBreaks: number[] = [];
-            doc.descendants((node, pos) => {
-              if (node.type.name === "pageBreak") {
-                pageBreaks.push(pos);
+            let beforePos = from - 1;
+            if (beforePos >= 0) {
+              const beforeNode = doc.nodeAt(beforePos);
+              if (
+                beforeNode &&
+                beforeNode.type.name === "pageBreak" &&
+                beforeNode.attrs.type === "automatic"
+              ) {
+                return true;
               }
-            });
-
-            for (const breakPos of pageBreaks) {
-              if (from > breakPos) currentPage++;
             }
 
-            const pageBottom =
-              currentPage * PAGE_HEIGHT - FOOTER_HEIGHT - MARGIN_BOTTOM;
-            const distanceFromBottom = pageBottom - relativeY;
-
-            if (distanceFromBottom < LINE_HEIGHT) {
-              const $from = doc.resolve(from);
-              const { tr } = state;
-
-              const insertPos = $from.after();
-              const pageBreak = schema.nodes.pageBreak.create();
-              const paragraph = schema.nodes.paragraph.create(
-                null,
-                schema.text(text)
-              );
-
-              const transaction = tr
-                .insert(insertPos, Fragment.fromArray([pageBreak, paragraph]))
-                .setSelection(
-                  TextSelection.create(tr.doc, insertPos + 2 + text.length)
-                );
-
-              view.dispatch(transaction);
-
+            const shouldInsertAutoBreak = checkIfAtPageEnd(view, from);
+            if (shouldInsertAutoBreak) {
               setTimeout(() => {
-                const scrollContainer = view.dom.closest(
-                  ".editor-scroll-container"
-                );
-                if (scrollContainer) {
-                  const newPageTop = currentPage * PAGE_HEIGHT;
-                  scrollContainer.scrollTo({
-                    top: newPageTop,
-                    behavior: "smooth",
-                  });
-                }
-                view.focus();
-              }, 50);
-
+                insertAutomaticPageBreak(view, from);
+              }, 10);
               return true;
             }
 
@@ -292,142 +217,42 @@ export const AutoPageBreak = Extension.create({
           const docChanged = transactions.some((tr) => tr.docChanged);
           if (!docChanged) return null;
 
-          const { selection, doc, schema } = newState;
+          const { doc, schema } = newState;
           if (!schema.nodes.pageBreak) return null;
 
-          const pageBreaks: number[] = [];
+          let needsUpdate = false;
+          let tr = newState.tr;
+          let offset = 0;
+
           doc.descendants((node, pos) => {
-            if (node.type.name === "pageBreak") {
-              pageBreaks.push(pos);
-            }
-          });
+            if (node.isBlock && node.type.name !== "pageBreak") {
+              try {
+                const nodeEnd = pos + node.nodeSize;
+                const nextNode = doc.nodeAt(nodeEnd);
 
-          let currentPage = 1;
-          let pageStartPos = 0;
-          const pos = selection.$anchor.pos;
+                if (nextNode && nextNode.type.name !== "pageBreak") {
+                  const estimatedHeight = estimateNodeHeight(node);
+                  const currentPosition = getNodePosition(pos + offset);
 
-          for (let i = 0; i < pageBreaks.length; i++) {
-            if (pos > pageBreaks[i]) {
-              currentPage++;
-              pageStartPos = pageBreaks[i] + 1;
-            }
-          }
-
-          const pageContent = doc.slice(
-            pageStartPos,
-            Math.min(pos + 100, doc.content.size)
-          );
-          let estimatedHeight = 0;
-
-          pageContent.content.forEach((node) => {
-            if (node.isBlock) {
-              estimatedHeight += LINE_HEIGHT;
-              if (node.isText) {
-                const lines = Math.ceil(node.text.length / 80);
-                estimatedHeight += (lines - 1) * LINE_HEIGHT;
-              }
-            }
-          });
-
-          if (
-            estimatedHeight > USABLE_HEIGHT &&
-            selection.$anchor.parent.content.size > 0
-          ) {
-            const { tr } = newState;
-            const insertPos = selection.$anchor.after();
-
-            if (insertPos < doc.content.size) {
-              const pageBreak = schema.nodes.pageBreak.create();
-              const paragraph = schema.nodes.paragraph.create();
-
-              return tr
-                .insert(insertPos, Fragment.fromArray([pageBreak, paragraph]))
-                .setSelection(TextSelection.create(tr.doc, insertPos + 2));
-            }
-          }
-
-          return null;
-        },
-
-        view(editorView) {
-          let preventOverflow: (() => void) | null = null;
-
-          preventOverflow = () => {
-            const { state } = editorView;
-            const { selection, doc } = state;
-
-            if (!selection.empty) return;
-
-            const pos = selection.$anchor.pos;
-            const coords = editorView.coordsAtPos(pos);
-            const editorRect = editorView.dom.getBoundingClientRect();
-            const relativeY = coords.bottom - editorRect.top;
-
-            const pageBreaks: number[] = [];
-            doc.descendants((node, nodePos) => {
-              if (node.type.name === "pageBreak") {
-                pageBreaks.push(nodePos);
-              }
-            });
-
-            let currentPage = 1;
-            for (const breakPos of pageBreaks) {
-              if (pos > breakPos) currentPage++;
-            }
-
-            const pageBottom =
-              currentPage * PAGE_HEIGHT - FOOTER_HEIGHT - MARGIN_BOTTOM;
-            const isOverflowing = relativeY > pageBottom;
-
-            if (isOverflowing) {
-              const { tr, schema } = state;
-              const $pos = doc.resolve(pos);
-              const insertPos = $pos.before();
-
-              if (schema.nodes.pageBreak && insertPos > 0) {
-                const pageBreak = schema.nodes.pageBreak.create();
-                const paragraph = schema.nodes.paragraph.create();
-
-                const transaction = tr
-                  .insert(insertPos, Fragment.fromArray([pageBreak, paragraph]))
-                  .setSelection(TextSelection.create(tr.doc, insertPos + 2));
-
-                editorView.dispatch(transaction);
-
-                setTimeout(() => {
-                  const scrollContainer = editorView.dom.closest(
-                    ".editor-scroll-container"
-                  );
-                  if (scrollContainer) {
-                    scrollContainer.scrollTo({
-                      top: currentPage * PAGE_HEIGHT,
-                      behavior: "smooth",
+                  if (
+                    currentPosition &&
+                    currentPosition.y + estimatedHeight > USABLE_HEIGHT
+                  ) {
+                    const autoPageBreak = schema.nodes.pageBreak.create({
+                      type: "automatic",
                     });
+                    tr = tr.insert(pos + node.nodeSize + offset, autoPageBreak);
+                    offset += autoPageBreak.nodeSize;
+                    needsUpdate = true;
                   }
-                }, 50);
+                }
+              } catch (e) {
+                // Skip if position calculation fails
               }
             }
-          };
-
-          const observer = new MutationObserver(() => {
-            requestAnimationFrame(preventOverflow!);
           });
 
-          observer.observe(editorView.dom, {
-            childList: true,
-            subtree: true,
-            characterData: true,
-          });
-
-          return {
-            update() {
-              preventOverflow && preventOverflow();
-            },
-
-            destroy() {
-              observer.disconnect();
-            },
-          };
+          return needsUpdate ? tr : null;
         },
       }),
     ];

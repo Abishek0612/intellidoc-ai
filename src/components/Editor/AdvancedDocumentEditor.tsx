@@ -694,12 +694,7 @@ const AdvancedDocumentEditor: React.FC = () => {
                 currentPage={currentPage}
                 totalPages={totalPages}
               />
-              <button
-                onClick={() => editor?.chain().focus().insertPageBreak().run()}
-                className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition-colors"
-              >
-                Page Break
-              </button>
+
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => {

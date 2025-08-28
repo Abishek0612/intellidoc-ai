@@ -23,6 +23,7 @@ import {
   FileText,
   File,
   Globe,
+  Split,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { FontOption } from "../../types";
@@ -491,6 +492,20 @@ const Toolbar: React.FC<ToolbarProps> = ({
       .run();
   }, [editor]);
 
+  const insertManualPageBreak = useCallback(() => {
+    if (!editor) return;
+
+    try {
+      editor.chain().focus().insertManualPageBreak().run();
+      toast.success("Manual page break inserted!", {
+        position: window.innerWidth < 768 ? "top-center" : "top-right",
+        autoClose: 1500,
+      });
+    } catch (error) {
+      toast.error("Failed to insert page break");
+    }
+  }, [editor]);
+
   return (
     <>
       <div className="bg-white border-b border-gray-200 flex-shrink-0 relative z-30">
@@ -578,6 +593,15 @@ const Toolbar: React.FC<ToolbarProps> = ({
               }`}
             >
               <Strikethrough className="w-3 h-3 sm:w-4 sm:h-4" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1 mr-2">
+            <button
+              onClick={insertManualPageBreak}
+              className="p-1.5 sm:p-2 hover:bg-gray-100 rounded bg-orange-50 hover:bg-orange-100 text-orange-600"
+            >
+              <Split className="w-3 h-3 sm:w-4 sm:h-4" />
             </button>
           </div>
 
@@ -886,6 +910,12 @@ const Toolbar: React.FC<ToolbarProps> = ({
                   className="p-2 hover:bg-gray-100 rounded cursor-pointer"
                 >
                   <Table className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={insertManualPageBreak}
+                  className="p-2 hover:bg-gray-100 rounded cursor-pointer bg-orange-50 hover:bg-orange-100 text-orange-600"
+                >
+                  <Split className="w-4 h-4" />
                 </button>
               </div>
             </div>

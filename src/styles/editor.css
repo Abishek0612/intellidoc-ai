@@ -372,24 +372,108 @@ body {
 
 .page-break {
   display: block;
-  border-top: 2px dashed #ced4da;
-  margin: 2rem 0;
+  margin: 1rem 0;
   position: relative;
-  page-break-before: always;
-  break-before: page;
   clear: both;
   width: 100% !important;
   max-width: none !important;
+  height: 2px;
+  border: none;
+  background: transparent;
 }
 
-.page-break::before {
+.page-break-manual {
+  border-top: 2px dashed #f59e0b;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #fef3c7 50%,
+    transparent 100%
+  );
+  cursor: pointer;
+}
+
+.page-break-manual::before {
   content: "Manual Page Break";
   position: absolute;
   top: -0.75em;
   left: 50%;
   transform: translateX(-50%);
   background-color: #ffffff;
-  color: #adb5bd;
+  color: #f59e0b;
+  font-size: 0.75rem;
+  padding: 0 0.5em;
+  font-family: Arial, sans-serif;
+  z-index: 2;
+  font-weight: 600;
+  border: 1px solid #f59e0b;
+  border-radius: 4px;
+}
+
+.page-break-manual:hover {
+  border-color: #d97706;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #fde68a 50%,
+    transparent 100%
+  );
+}
+
+.page-break-manual:hover::before {
+  color: #d97706;
+  border-color: #d97706;
+}
+
+.page-break-automatic {
+  border-top: 2px solid #ef4444;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #fecaca 50%,
+    transparent 100%
+  );
+  cursor: not-allowed;
+  pointer-events: auto;
+  page-break-before: always;
+  break-before: page;
+}
+
+.page-break-automatic::before {
+  content: "Automatic Page Break - No Typing Allowed";
+  position: absolute;
+  top: -0.75em;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #ffffff;
+  color: #ef4444;
+  font-size: 0.75rem;
+  padding: 0 0.5em;
+  font-family: Arial, sans-serif;
+  z-index: 2;
+  font-weight: 600;
+  border: 1px solid #ef4444;
+  border-radius: 4px;
+}
+
+.page-break:not(.page-break-manual):not(.page-break-automatic) {
+  border-top: 2px dashed #6b7280;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #f3f4f6 50%,
+    transparent 100%
+  );
+}
+
+.page-break:not(.page-break-manual):not(.page-break-automatic)::before {
+  content: "Page Break";
+  position: absolute;
+  top: -0.75em;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #ffffff;
+  color: #6b7280;
   font-size: 0.75rem;
   padding: 0 0.5em;
   font-family: Arial, sans-serif;
@@ -532,6 +616,10 @@ body {
   .margin-indicator,
   .margin-area,
   .margin-guide-overlay {
+    display: none !important;
+  }
+
+  .page-break::before {
     display: none !important;
   }
 }
