@@ -1,4 +1,4 @@
-import { Node, mergeAttributes, RawCommands } from "@tiptap/core";
+import { Node, mergeAttributes } from "@tiptap/core";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -13,6 +13,8 @@ export const PageBreak = Node.create({
   name: "pageBreak",
 
   group: "block",
+
+  atom: true,
 
   addAttributes() {
     return {
@@ -48,6 +50,7 @@ export const PageBreak = Node.create({
         "data-type": "page-break",
         "data-break-type": breakType,
         class: `page-break page-break-${breakType}`,
+        contenteditable: "false",
       }),
     ];
   },
@@ -57,18 +60,28 @@ export const PageBreak = Node.create({
       insertPageBreak:
         () =>
         ({ commands }) => {
-          return commands.insertContent({
-            type: this.name,
-            attrs: { type: "manual" },
-          });
+          return commands.insertContent([
+            {
+              type: this.name,
+              attrs: { type: "manual" },
+            },
+            {
+              type: "paragraph",
+            },
+          ]);
         },
       insertManualPageBreak:
         () =>
         ({ commands }) => {
-          return commands.insertContent({
-            type: this.name,
-            attrs: { type: "manual" },
-          });
+          return commands.insertContent([
+            {
+              type: this.name,
+              attrs: { type: "manual" },
+            },
+            {
+              type: "paragraph",
+            },
+          ]);
         },
     };
   },

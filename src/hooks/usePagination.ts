@@ -9,6 +9,7 @@ interface UsePaginationReturn {
 
 const PAGE_HEIGHT = 1123;
 const USABLE_HEIGHT = 947;
+const PAGE_GAP = 24;
 
 export const usePagination = (editor: Editor | null): UsePaginationReturn => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -39,14 +40,17 @@ export const usePagination = (editor: Editor | null): UsePaginationReturn => {
       calculatedPages = Math.ceil(actualContentHeight / USABLE_HEIGHT);
     }
 
-    const pageBreaks =
-      editor.getHTML().split('data-type="page-break"').length - 1;
-    calculatedPages = Math.max(calculatedPages, pageBreaks + 1);
+    const automaticBreaks =
+      editor.getHTML().split('data-break-type="automatic"').length - 1;
+    const manualBreaks =
+      editor.getHTML().split('data-break-type="manual"').length - 1;
+
+    calculatedPages = Math.max(calculatedPages, automaticBreaks + 1);
 
     setTotalPages(Math.max(1, calculatedPages));
 
     const { scrollTop } = scrollContainerRef.current;
-    const effectivePageHeight = PAGE_HEIGHT + 24;
+    const effectivePageHeight = PAGE_HEIGHT + PAGE_GAP;
     const calculatedCurrentPage =
       Math.floor(scrollTop / effectivePageHeight) + 1;
 
