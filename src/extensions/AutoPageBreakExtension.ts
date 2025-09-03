@@ -52,17 +52,6 @@ export const AutoPageBreak = Extension.create({
       return found;
     };
 
-    const getPageNumberFromPosition = (view: any, pos: number): number => {
-      try {
-        const rect = view.coordsAtPos(pos);
-        const editorRect = view.dom.getBoundingClientRect();
-        const relativeY = rect.bottom - editorRect.top;
-        return Math.floor(relativeY / PAGE_HEIGHT) + 1;
-      } catch (error) {
-        return 1;
-      }
-    };
-
     const checkIfAtPageEnd = (view: any, pos: number): boolean => {
       try {
         const rect = view.coordsAtPos(pos);
@@ -90,93 +79,122 @@ export const AutoPageBreak = Extension.create({
         type: "automatic",
       });
 
-      const paragraph = schema.nodes.paragraph.create();
+      const emptyParagraph = schema.nodes.paragraph.create();
 
       let tr = state.tr.insert(pos, autoPageBreak);
-      tr = tr.insert(pos + autoPageBreak.nodeSize, paragraph);
-
-      const extraParagraphs = 30;
-      for (let i = 0; i < extraParagraphs; i++) {
-        const emptyPara = schema.nodes.paragraph.create();
-        tr = tr.insert(tr.doc.content.size, emptyPara);
-      }
+      tr = tr.insert(pos + autoPageBreak.nodeSize, emptyParagraph);
 
       const newCursorPos = pos + autoPageBreak.nodeSize + 1;
-      tr = tr.setSelection(TextSelection.create(tr.doc, newCursorPos));
 
+      for (let i = 0; i < 6; i++) {
+        const extraPara = schema.nodes.paragraph.create();
+        tr = tr.insert(tr.doc.content.size, extraPara);
+      }
+
+      tr = tr.setSelection(TextSelection.create(tr.doc, newCursorPos));
       dispatch(tr);
 
       setTimeout(() => {
-        const newState = view.state;
-        const cursorTr = newState.tr.setSelection(
-          TextSelection.create(newState.doc, newCursorPos)
+        const currentState = view.state;
+        const finalCursorPos = Math.min(
+          newCursorPos,
+          currentState.doc.content.size - 1
         );
-        view.dispatch(cursorTr);
+
+        if (finalCursorPos > 0) {
+          const finalTr = currentState.tr.setSelection(
+            TextSelection.create(currentState.doc, finalCursorPos)
+          );
+          view.dispatch(finalTr);
+        }
+
         view.focus();
 
-        const scrollContainer = view.dom.closest(".editor-scroll-container");
-        if (scrollContainer) {
-          const currentPage = getPageNumberFromPosition(view, pos);
-          const nextPageTop = currentPage * PAGE_HEIGHT;
-          scrollContainer.scrollTo({
-            top: nextPageTop,
-            behavior: "smooth",
-          });
-        }
-
-        const proseMirrorElement = view.dom as HTMLElement;
-        if (proseMirrorElement) {
-          const newHeight = Math.max(
-            proseMirrorElement.scrollHeight,
-            (currentPage + 1) * PAGE_HEIGHT
-          );
-          proseMirrorElement.style.minHeight = `${newHeight}px`;
-        }
-      }, 100);
+        setTimeout(() => {
+          const scrollContainer = view.dom.closest(".editor-scroll-container");
+          if (scrollContainer) {
+            const currentPage = Math.floor(pos / USABLE_HEIGHT);
+            const nextPageTop = (currentPage + 1) * (PAGE_HEIGHT + 24);
+            scrollContainer.scrollTo({
+              top: nextPageTop,
+              behavior: "smooth",
+            });
+          }
+        }, 100);
+      }, 50);
 
       return true;
     };
 
-    const isPositionAfterAutoBreak = (doc: any, pos: number): boolean => {
+    const isPositionInRestrictedArea = (doc: any, pos: number): boolean => {
       if (pos <= 0) return false;
 
-      let foundAutoBreak = false;
-      let checkPos = pos - 1;
+      let isRestricted = false;
+      let searchStart = Math.max(0, pos - 30);
+      let searchEnd = Math.min(doc.content.size, pos + 10);
 
-      while (checkPos >= 0 && checkPos >= pos - 5) {
-        const node = doc.nodeAt(checkPos);
-        if (
-          node &&
-          node.type.name === "pageBreak" &&
-          node.attrs.type === "automatic"
-        ) {
-          foundAutoBreak = true;
-          break;
+      doc.nodesBetween(searchStart, searchEnd, (node: any, nodePos: number) => {
+        if (node.type.name === "pageBreak" && node.attrs.type === "automatic") {
+          const breakStart = nodePos;
+          const breakEnd = nodePos + node.nodeSize;
+
+          if (pos >= breakStart - 5 && pos <= breakEnd + 5) {
+            isRestricted = true;
+            return false;
+          }
         }
-        checkPos--;
-      }
+      });
 
-      return foundAutoBreak;
+      return isRestricted;
     };
 
-    const isInCompletedPage = (view: any, pos: number): boolean => {
-      const { doc } = view.state;
-      let autoBreakPos = -1;
+    const findNextValidPosition = (doc: any, currentPos: number): number => {
+      let validPos = currentPos;
+      let searchStart = currentPos;
 
       doc.nodesBetween(
-        Math.max(0, pos - 100),
-        pos,
+        searchStart,
+        doc.content.size,
         (node: any, nodePos: number) => {
-          if (
-            node.type.name === "pageBreak" &&
-            node.attrs.type === "automatic"
-          ) {
-            autoBreakPos = nodePos;
+          if (node.type.name === "paragraph") {
+            const paragraphStart = nodePos;
+            let isAfterAutoBreak = false;
+
+            doc.nodesBetween(
+              Math.max(0, paragraphStart - 20),
+              paragraphStart,
+              (prevNode: any) => {
+                if (
+                  prevNode.type.name === "pageBreak" &&
+                  prevNode.attrs.type === "automatic"
+                ) {
+                  isAfterAutoBreak = true;
+                  return false;
+                }
+              }
+            );
+
+            if (isAfterAutoBreak && paragraphStart > currentPos) {
+              validPos = paragraphStart + 1;
+              return false;
+            }
           }
         }
       );
 
-      if (autoBreakPos !== -1 && pos <= autoBreakPos + 2) {
+      return Math.min(validPos, doc.content.size - 1);
+    };
+
+    const moveToNextPage = (view: any, currentPos: number): boolean => {
+      const { state } = view;
+      const nextPos = findNextValidPosition(state.doc, currentPos);
+
+      if (nextPos !== currentPos && nextPos > 0) {
+        const tr = state.tr.setSelection(
+          TextSelection.create(state.doc, nextPos)
+        );
+        view.dispatch(tr);
+        view.focus();
         return true;
       }
 
@@ -211,57 +229,31 @@ export const AutoPageBreak = Extension.create({
             }
 
             if (event.ctrlKey || event.metaKey || event.altKey) return false;
-
             if (!selection.empty || !schema.nodes.pageBreak) return false;
 
             const pos = selection.$anchor.pos;
 
-            if (isInCompletedPage(view, pos)) {
-              if (event.key === "Enter" || event.key.length === 1) {
-                event.preventDefault();
+            if (isPositionInRestrictedArea(state.doc, pos)) {
+              event.preventDefault();
 
-                const { doc } = state;
-                doc.nodesBetween(
-                  pos,
-                  Math.min(doc.content.size, pos + 100),
+              if (event.key === "Backspace" || event.key === "Delete") {
+                let autoBreakPos = -1;
+                state.doc.nodesBetween(
+                  Math.max(0, pos - 30),
+                  Math.min(state.doc.content.size, pos + 10),
                   (node: any, nodePos: number) => {
-                    if (node.type.name === "paragraph" && nodePos > pos) {
-                      const tr = state.tr.setSelection(
-                        TextSelection.create(state.doc, nodePos + 1)
-                      );
-                      view.dispatch(tr);
-                      view.focus();
+                    if (
+                      node.type.name === "pageBreak" &&
+                      node.attrs.type === "automatic"
+                    ) {
+                      autoBreakPos = nodePos;
                       return false;
                     }
                   }
                 );
 
-                return true;
-              }
-
-              if (event.key === "Backspace") {
-                event.preventDefault();
-                const { doc } = state;
-                let autoBreakPos = -1;
-
-                for (
-                  let checkPos = pos - 1;
-                  checkPos >= 0 && checkPos >= pos - 5;
-                  checkPos--
-                ) {
-                  const node = doc.nodeAt(checkPos);
-                  if (
-                    node &&
-                    node.type.name === "pageBreak" &&
-                    node.attrs.type === "automatic"
-                  ) {
-                    autoBreakPos = checkPos;
-                    break;
-                  }
-                }
-
                 if (autoBreakPos !== -1) {
-                  const node = doc.nodeAt(autoBreakPos);
+                  const node = state.doc.nodeAt(autoBreakPos);
                   if (node) {
                     const tr = state.tr.delete(
                       autoBreakPos,
@@ -271,14 +263,18 @@ export const AutoPageBreak = Extension.create({
                     return true;
                   }
                 }
+              } else {
+                moveToNextPage(view, pos);
               }
-
-              return false;
+              return true;
             }
 
-            const shouldInsertAutoBreak = checkIfAtPageEnd(view, pos);
+            const shouldInsertBreak = checkIfAtPageEnd(view, pos);
 
-            if (shouldInsertAutoBreak && event.key === "Enter") {
+            if (
+              shouldInsertBreak &&
+              (event.key === "Enter" || event.key.length === 1)
+            ) {
               if (!hasAutoBreakNearPosition(state.doc, pos)) {
                 event.preventDefault();
                 insertAutomaticPageBreak(view, pos);
@@ -292,39 +288,36 @@ export const AutoPageBreak = Extension.create({
           handleTextInput(view, from, to, text) {
             if (!options.enabled) return false;
 
-            if (isInCompletedPage(view, from)) {
-              const { state } = view;
-              const { doc } = state;
+            const { state } = view;
 
-              doc.nodesBetween(
-                from,
-                Math.min(doc.content.size, from + 100),
-                (node: any, nodePos: number) => {
-                  if (node.type.name === "paragraph" && nodePos > from) {
-                    setTimeout(() => {
-                      const tr = state.tr.setSelection(
-                        TextSelection.create(state.doc, nodePos + 1)
-                      );
-                      view.dispatch(tr);
-                      view.focus();
-                    }, 0);
-                    return false;
-                  }
-                }
-              );
-
+            if (isPositionInRestrictedArea(state.doc, from)) {
+              setTimeout(() => moveToNextPage(view, from), 10);
               return true;
             }
 
-            const shouldInsertAutoBreak = checkIfAtPageEnd(view, from);
+            if (
+              checkIfAtPageEnd(view, from) &&
+              !hasAutoBreakNearPosition(state.doc, from)
+            ) {
+              setTimeout(() => insertAutomaticPageBreak(view, from), 10);
+              return true;
+            }
+
+            return false;
+          },
+
+          handleClick(view, pos, event) {
+            const clickPos = view.posAtCoords({
+              left: event.clientX,
+              top: event.clientY,
+            })?.pos;
 
             if (
-              shouldInsertAutoBreak &&
-              !hasAutoBreakNearPosition(view.state.doc, from)
+              clickPos &&
+              isPositionInRestrictedArea(view.state.doc, clickPos)
             ) {
-              setTimeout(() => {
-                insertAutomaticPageBreak(view, from);
-              }, 10);
+              event.preventDefault();
+              setTimeout(() => moveToNextPage(view, clickPos), 10);
               return true;
             }
 
@@ -332,8 +325,43 @@ export const AutoPageBreak = Extension.create({
           },
         },
 
-        appendTransaction(transactions, oldState, newState) {
-          return null;
+        view(editorView) {
+          let checkTimeout: number | null = null;
+
+          const checkCursorPosition = () => {
+            if (checkTimeout) clearTimeout(checkTimeout);
+
+            checkTimeout = window.setTimeout(() => {
+              const { state } = editorView;
+              const pos = state.selection.from;
+
+              if (isPositionInRestrictedArea(state.doc, pos)) {
+                moveToNextPage(editorView, pos);
+              }
+            }, 100);
+          };
+
+          const observer = new MutationObserver(checkCursorPosition);
+          observer.observe(editorView.dom, {
+            childList: true,
+            subtree: true,
+            characterData: true,
+          });
+
+          editorView.dom.addEventListener("focusin", checkCursorPosition);
+          editorView.dom.addEventListener("click", checkCursorPosition);
+
+          return {
+            destroy() {
+              observer.disconnect();
+              if (checkTimeout) clearTimeout(checkTimeout);
+              editorView.dom.removeEventListener(
+                "focusin",
+                checkCursorPosition
+              );
+              editorView.dom.removeEventListener("click", checkCursorPosition);
+            },
+          };
         },
       }),
     ];
