@@ -440,7 +440,7 @@ body {
 }
 
 .page-break-automatic::before {
-  content: "Automatic Page Break - No Typing Allowed";
+  content: "Automatic Page Break - Please Type From Next Page";
   position: absolute;
   top: -0.75em;
   left: 50%;
