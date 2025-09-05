@@ -34,7 +34,6 @@ import { EditableHeader } from "../../extensions/EditableHeaderExtension";
 import { EditableFooter } from "../../extensions/EditableFooterExtension";
 import { Edit3, Check, X, Sliders } from "lucide-react";
 import SimpleTextModal from "./SimpleTextModal";
-import { position } from "html2canvas/dist/types/css/property-descriptors/position";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -319,9 +318,13 @@ const AdvancedDocumentEditor: React.FC = () => {
       const { from, to } = selection;
       if (from !== to) {
         const coords = editor.view.coordsAtPos(from);
+        const editorRect = editor.view.dom.getBoundingClientRect();
         setTextModal({
           visible: true,
-          position: { x: coords.left, y: coords.top },
+          position: {
+            x: coords.left - editorRect.left + editorRect.left,
+            y: coords.top - editorRect.top + editorRect.top,
+          },
         });
       } else {
         setTextModal((prev) => ({ ...prev, visible: false }));
