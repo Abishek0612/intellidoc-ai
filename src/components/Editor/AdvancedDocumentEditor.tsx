@@ -33,6 +33,8 @@ import "../../styles/editor.css";
 import { EditableHeader } from "../../extensions/EditableHeaderExtension";
 import { EditableFooter } from "../../extensions/EditableFooterExtension";
 import { Edit3, Check, X, Sliders } from "lucide-react";
+import SimpleTextModal from "./SimpleTextModal";
+import { position } from "html2canvas/dist/types/css/property-descriptors/position";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -297,11 +299,39 @@ const AdvancedDocumentEditor: React.FC = () => {
   const [watermarkText, setWatermarkText] = useState("This is a watermark");
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.08);
   const [showWatermarkEditor, setShowWatermarkEditor] = useState(false);
+  const [textModal, setTextModal] = useState({
+    visible: false,
+    position: { x: 0, y: 0 },
+  });
+
   const [margins, setMargins] = useState({
     left: DEFAULT_MARGIN,
     right: DEFAULT_MARGIN,
     top: DEFAULT_MARGIN,
     bottom: DEFAULT_MARGIN,
+  });
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const handleSelection = () => {
+      const { selection } = editor.state;
+      const { from, to } = selection;
+      if (from !== to) {
+        const coords = editor.view.coordsAtPos(from);
+        setTextModal({
+          visible: true,
+          position: { x: coords.left, y: coords.top },
+        });
+      } else {
+        setTextModal((prev) => ({ ...prev, visible: false }));
+      }
+    };
+
+    editor.on("selectionUpdate", handleSelection);
+    return () => {
+      editor.off("selectionUpdate", handleSelection);
+    };
   });
 
   useEffect(() => {
@@ -664,6 +694,13 @@ const AdvancedDocumentEditor: React.FC = () => {
           />
         </div>
       )}
+
+      <SimpleTextModal
+        editor={editor}
+        visible={textModal.visible}
+        position={textModal.position}
+        onClose={() => setTextModal((prev) => ({ ...prev, visible: false }))}
+      />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="bg-white border-b border-gray-200 p-2 sm:p-4 flex-shrink-0">
